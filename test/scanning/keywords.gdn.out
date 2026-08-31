@@ -1,5 +1,21 @@
 #stdout
-b0:
+b229:And and null
+Class class null
+Else else null
+False false null
+For for null
+Fun fun null
+If if null
+Nil nil null
+Or or null
+Return return null
+Super super null
+This this null
+True true null
+Var var null
+While while null
+Eof  null
+
 #exit_code
 i:0
 #stderr

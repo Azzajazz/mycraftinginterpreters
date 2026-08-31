@@ -1,5 +1,10 @@
 #stdout
-b0:
+b98:Identifier space null
+Identifier tabs null
+Identifier newlines null
+Identifier end null
+Eof  null
+
 #exit_code
 i:0
 #stderr
