@@ -93,6 +93,14 @@ advance_lexer :: proc(lexer: ^Lexer, steps: int) {
     }
 }
 
+peek_token :: proc(lexer: ^Lexer) -> Token {
+    // @Performance: Queue tokens so that we don't have to copy and lex here.
+    old_lexer := lexer^
+    token := lex_token(lexer)
+    lexer^ = old_lexer
+    return token
+}
+
 lex_token :: proc(lexer: ^Lexer) -> Token {
     token: Token
 

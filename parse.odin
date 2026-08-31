@@ -1,3 +1,5 @@
+#+feature dynamic-literals
+
 package lox
 
 import "core:fmt"
@@ -8,6 +10,7 @@ Ast_Type :: enum {
     Number,
     String,
     Plus,
+    Times,
 }
 
 Ast :: struct {
@@ -40,11 +43,33 @@ Ast_String :: struct {
     value: string,
 }
 
-Ast_Plus :: struct {
+Ast_Binary_Operator :: struct {
     using expr: Ast_Expression,
 
     left: ^Ast_Expression,
     right: ^Ast_Expression,
+}
+
+Ast_Plus :: distinct Ast_Binary_Operator
+Ast_Times :: distinct Ast_Binary_Operator
+
+ast_types := map[typeid]Ast_Type {
+    Ast_Number = .Number,
+    Ast_String = .String,
+    Ast_Plus = .Plus ,
+    Ast_Times = .Times ,
+}
+
+new_ast_node :: proc($T: typeid, line_start, char_start: int, line_end, char_end: int) -> ^T {
+    ast := new(T)
+    ast.type = ast_types[T]
+
+    ast.line_start = line_start
+    ast.char_start = char_start
+    ast.line_end = line_end
+    ast.char_end = char_end
+
+    return ast
 }
 
 dump_indent :: proc(indent: int) {
@@ -71,8 +96,9 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         dump_indent(indent)
         fmt.printfln("  value = %v", str.value)
 
-    case .Plus:
-        plus := cast(^Ast_Plus)ast
+    case .Plus: fallthrough
+    case .Times:
+        plus := cast(^Ast_Binary_Operator)ast
 
         dump_indent(indent)
         fmt.print("  left = ")
@@ -100,30 +126,47 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
     return parse_expression(parser)
 }
 
-parse_expression :: proc(parser: ^Parser) -> ^Ast_Expression {
+MIN_BINDING_POWER :: 10 // @Volatile: Must be updated with binding_powers.
+binding_powers := map[Token_Type]int{
+    .Plus = 10,
+    .Star = 20,
+}
+
+parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER) -> ^Ast_Expression {
     line_start := parser.line
     char_start := parser.char
 
     // @Hack: Some hardcoded stuff here.
     left := parse_expression_leaf(parser)
-    assert(left != nil)
-    operator := lex_token(parser.lexer)
-    assert(operator.type == .Plus)
-    right := parse_expression_leaf(parser)
-    assert(right != nil)
-    
-    expr := new(Ast_Plus)
-    expr.type = .Plus
+    maybe_operator := peek_token(parser.lexer)
+    binding_power, has_binding := binding_powers[maybe_operator.type]
+    for has_binding {
+        lex_token(parser.lexer) // Actually consume the operator.
+        
+        right: ^Ast_Expression
+        if binding_power > max_binding_power {
+            right = parse_expression(parser, binding_power)
+        } else {
+            right = parse_expression_leaf(parser)
+        }
+        
+        ast_operator: ^Ast_Binary_Operator
+        if maybe_operator.type == .Plus {
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, line_start, char_start, parser.line, parser.char)
+        } else if maybe_operator.type == .Star {
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, line_start, char_start, parser.line, parser.char)
+        }
+        assert(ast_operator != nil)
+        ast_operator.left = left
+        ast_operator.right = right
 
-    expr.line_start = line_start
-    expr.char_start = char_start
-    expr.line_end = parser.line
-    expr.char_end = parser.char
+        left = ast_operator
 
-    expr.left = left
-    expr.right = right
+        maybe_operator = peek_token(parser.lexer)
+        binding_power, has_binding = binding_powers[maybe_operator.type]
+    }
 
-    return expr
+    return left
 }
 
 parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
@@ -133,33 +176,19 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     token := lex_token(parser.lexer)
     #partial switch token.type {
     case .Number:
-        expr := new(Ast_Number)
-        expr.type = .Number
-
-        expr.line_start = line_start
-        expr.char_start = char_start
-        expr.line_end = parser.line
-        expr.char_end = parser.char
-
+        expr := new_ast_node(Ast_Number, line_start, char_start, parser.line, parser.char)
         expr.value = token.value.number
 
         return expr
 
     case .String:
-        expr := new(Ast_String)
-        expr.type = .String
-
-        expr.line_start = line_start
-        expr.char_start = char_start
-        expr.line_end = parser.line
-        expr.char_end = parser.char
-
+        expr := new_ast_node(Ast_String, line_start, char_start, parser.line, parser.char)
         expr.value = token.value.str
 
         return expr
 
     case:
-        report_internal_error("Unsupported token type %v when parsing an expression", token.type)
+        report_internal_error("Unsupported token type %v when parsing an expression leaf", token.type)
     }
 
     unreachable()
