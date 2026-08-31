@@ -49,6 +49,12 @@ Token_Type :: enum {
 }
 
 Token :: struct {
+    line_start: int,
+    char_start: int,
+    // @Compactness: Maybe these are superfluous?
+    line_end: int,
+    char_end: int,
+
     type: Token_Type,
     code: string,
 
@@ -59,12 +65,15 @@ Token :: struct {
 }
 
 Lexer :: struct {
+    file_name: string,
+    line: int,
+    char: int,
     code: string,
     code_index: int,
 }
 
-report_parse_error :: proc(format: string, args: ..any) {
-    fmt.eprint("Error: ")
+report_parse_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..any) {
+    fmt.eprintf("%v(%v:%v) Error: ", lexer.file_name, token.line_start + 1, token.char_start + 1)
     fmt.eprintfln(format, ..args)
     os.exit(1)
 }
@@ -75,12 +84,28 @@ report_internal_error :: proc(format: string, args: ..any) {
     os.exit(1)
 }
 
+advance_lexer :: proc(lexer: ^Lexer, steps: int) {
+    for _ in 0..<steps {
+        if lexer.code_index >= len(lexer.code) do break
+
+        c := lexer.code[lexer.code_index]
+        lexer.code_index += 1
+
+        if c == '\n' {
+            lexer.line += 1
+            lexer.char = 0
+        } else {
+            lexer.char += 1
+        }
+    }
+}
+
 lex_token :: proc(lexer: ^Lexer) -> Token {
     token: Token
 
     for lexer.code_index < len(lexer.code) && (strings.is_ascii_space(cast(rune)lexer.code[lexer.code_index]) || strings.starts_with(lexer.code[lexer.code_index:], "//")){
         for lexer.code_index < len(lexer.code) && strings.is_ascii_space(cast(rune)lexer.code[lexer.code_index]) {
-            lexer.code_index += 1
+            advance_lexer(lexer, 1)
         }
 
         // Skip inline comments
@@ -88,116 +113,38 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             newline_index := strings.index_byte(lexer.code[lexer.code_index:], '\n')
             if newline_index == -1 {
                 lexer.code_index = len(lexer.code)
+                // Note we don't have to update lexer.line and lexer.char here, since we're at the end of input.
             } else {
-                lexer.code_index += newline_index
+                advance_lexer(lexer, newline_index)
             }
         }
     }
+
+    token.line_start = lexer.line
+    token.char_start = lexer.char
 
     if lexer.code_index >= len(lexer.code) {
         token.type = .Eof
     } else {
         c := lexer.code[lexer.code_index]
-        switch c {
-        case '(':
-            token.type = .LeftParen
-            token.code = "("
-            lexer.code_index += 1
-        case ')':
-            token.type = .RightParen
-            token.code = ")"
-            lexer.code_index += 1
-        case '{':
-            token.type = .LeftBrace
-            token.code = "{"
-            lexer.code_index += 1
-        case '}':
-            token.type = .RightBrace
-            token.code = "}"
-            lexer.code_index += 1
-        case ';':
-            token.type = .Semicolon
-            token.code = ";"
-            lexer.code_index += 1
-        case ',':
-            token.type = .Comma
-            token.code = ""
-            lexer.code_index += 1
-        case '+':
-            token.type = .Plus
-            token.code = "+"
-            lexer.code_index += 1
-        case '-':
-            token.type = .Minus
-            token.code = "-"
-            lexer.code_index += 1
-        case '*':
-            token.type = .Star
-            token.code = "*"
-            lexer.code_index += 1
-        case '!':
-            if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
-                token.type = .BangEqual
-                token.code = "!="
-                lexer.code_index += 2
-            } else {
-                report_internal_error("TODO: Bang for booleans")
-            }
-        case '=':
-            if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
-                token.type = .EqualEqual
-                token.code = "=="
-                lexer.code_index += 2
-            } else {
-                report_internal_error("TODO: '=' for assignment")
-            }
-        case '<':
-            if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
-                token.type = .LessEqual
-                token.code = "<="
-                lexer.code_index += 2
-            } else {
-                token.type = .Less
-                token.code = "<"
-                lexer.code_index += 1
-            }
-        case '>':
-            if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
-                token.type = .GreaterEqual
-                token.code = ">="
-                lexer.code_index += 2
-            } else {
-                token.type = .Greater
-                token.code = ">"
-                lexer.code_index += 1
-            }
-        case '/':
-            token.type = .Slash
-            token.code = "/"
-            lexer.code_index += 1
-        case '.':
-            token.type = .Dot
-            token.code = "."
-            lexer.code_index += 1
-        }
 
         // If we get here, then this is a string literal, a number, an identifier or a keyword.
         if c == '"' {
             string_start_index := lexer.code_index
-            lexer.code_index += 1
+            advance_lexer(lexer, 1)
             for lexer.code_index < len(lexer.code) && lexer.code[lexer.code_index] != '"' {
                 if lexer.code[lexer.code_index] == '\n' {
-                    report_parse_error("Strings must be terminated on the same line they start on.")
+                    report_parse_error(lexer, token, "Strings must be terminated on the same line they start on.")
                 }
-                lexer.code_index += 1
+                advance_lexer(lexer, 1)
             }
 
             if lexer.code_index >= len(lexer.code) {
-                report_parse_error("Expected a string to be terminated, but it wasn't.")
+                report_parse_error(lexer, token, "Expected a string to be terminated, but it wasn't.")
             }
 
             assert(lexer.code[lexer.code_index] == '"')
-            lexer.code_index += 1
+            advance_lexer(lexer, 1)
 
             assert(string_start_index <= lexer.code_index - 2)
             token.type = .String
@@ -207,14 +154,14 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             number_start_index := lexer.code_index
 
             for lexer.code_index < len(lexer.code) && ('0' <= lexer.code[lexer.code_index] && lexer.code[lexer.code_index] <= '9') {
-                lexer.code_index += 1
+                advance_lexer(lexer, 1)
             }
 
             if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index] == '.' && ('0' <= lexer.code[lexer.code_index + 1] && lexer.code[lexer.code_index + 1] <= '9') {
-                lexer.code_index += 2
+                advance_lexer(lexer, 2)
 
                 for lexer.code_index < len(lexer.code) && ('0' <= lexer.code[lexer.code_index] && lexer.code[lexer.code_index] <= '9') {
-                    lexer.code_index += 1
+                    advance_lexer(lexer, 1)
                 }
             }
 
@@ -228,9 +175,95 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
         } else if ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_' {
             lex_identifier_or_keyword(lexer, &token)
         } else {
-            report_parse_error("Unexpected character '%v'.", cast(rune)c)
+            switch c {
+            case '(':
+                token.type = .LeftParen
+                token.code = "("
+                advance_lexer(lexer, 1)
+            case ')':
+                token.type = .RightParen
+                token.code = ")"
+                advance_lexer(lexer, 1)
+            case '{':
+                token.type = .LeftBrace
+                token.code = "{"
+                advance_lexer(lexer, 1)
+            case '}':
+                token.type = .RightBrace
+                token.code = "}"
+                advance_lexer(lexer, 1)
+            case ';':
+                token.type = .Semicolon
+                token.code = ";"
+                advance_lexer(lexer, 1)
+            case ',':
+                token.type = .Comma
+                token.code = ""
+                advance_lexer(lexer, 1)
+            case '+':
+                token.type = .Plus
+                token.code = "+"
+                advance_lexer(lexer, 1)
+            case '-':
+                token.type = .Minus
+                token.code = "-"
+                advance_lexer(lexer, 1)
+            case '*':
+                token.type = .Star
+                token.code = "*"
+                advance_lexer(lexer, 1)
+            case '!':
+                if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
+                    token.type = .BangEqual
+                    token.code = "!="
+                    advance_lexer(lexer, 2)
+                } else {
+                    report_internal_error("TODO: Bang for booleans")
+                }
+            case '=':
+                if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
+                    token.type = .EqualEqual
+                    token.code = "=="
+                    advance_lexer(lexer, 2)
+                } else {
+                    report_internal_error("TODO: '=' for assignment")
+                }
+            case '<':
+                if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
+                    token.type = .LessEqual
+                    token.code = "<="
+                    advance_lexer(lexer, 2)
+                } else {
+                    token.type = .Less
+                    token.code = "<"
+                    advance_lexer(lexer, 1)
+                }
+            case '>':
+                if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
+                    token.type = .GreaterEqual
+                    token.code = ">="
+                    advance_lexer(lexer, 2)
+                } else {
+                    token.type = .Greater
+                    token.code = ">"
+                    advance_lexer(lexer, 1)
+                }
+            case '/':
+                token.type = .Slash
+                token.code = "/"
+                advance_lexer(lexer, 1)
+            case '.':
+                token.type = .Dot
+                token.code = "."
+                advance_lexer(lexer, 1)
+            case:
+                report_parse_error(lexer, token, "Unexpected character '%v'.", cast(rune)c)
+            }
         }
     }
+
+    token.line_end = lexer.line
+    token.char_end = lexer.char
 
     return token
 }
@@ -240,7 +273,7 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     identifier_start_index := lexer.code_index
     c1 := lexer.code[lexer.code_index]
     for ('a' <= c1 && c1 <= 'z') || ('A' <= c1 && c1 <= 'Z') || c1 == '_' || ('0' <= c1 && c1 <= '9') {
-        lexer.code_index += 1
+        advance_lexer(lexer, 1)
         if lexer.code_index >= len(lexer.code) do break
         c1 = lexer.code[lexer.code_index]
     }
@@ -330,11 +363,11 @@ main :: proc() {
     }
 
     if options.lex_only {
-        lexer := Lexer{code = cast(string)source_file_data, code_index = 0}
+        lexer := Lexer{file_name = options.source_file, code = cast(string)source_file_data, code_index = 0}
         token: Token
         for token.type != .Eof {
             token = lex_token(&lexer)
-            //dump_token(token)
+            dump_token(token)
         }
     }
 }

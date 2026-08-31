@@ -1,13 +1,7 @@
-#stderr
-b0:
 #stdout
-b100:Number 123 123
-Number 123.456 123.456
-Dot . null
-Number 456 456
-Number 123 123
-Dot . null
-Eof  null
-
+b0:
 #exit_code
-i:0
+i:1
+#stderr
+b33:Error: Unexpected character '.'.
+

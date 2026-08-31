@@ -1,9 +1,6 @@
+#stdout
+b0:
 #exit_code
 i:0
 #stderr
 b0:
-#stdout
-b44:String "" 
-String "string" string
-Eof  null
-

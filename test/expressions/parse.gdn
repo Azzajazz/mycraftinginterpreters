@@ -1,0 +1,9 @@
+#command
+l:
+b4:odin
+b3:run
+b1:.
+b2:--
+b26:test/expressions/parse.lox
+b9:-lex-only
+lend
