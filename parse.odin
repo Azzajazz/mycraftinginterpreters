@@ -61,9 +61,16 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     switch ast.type {
     case .Number:
         number := cast(^Ast_Number)ast
+
         dump_indent(indent)
         fmt.printfln("  value = %v", number.value)
+
     case .String:
+        str := cast(^Ast_String)ast
+
+        dump_indent(indent)
+        fmt.printfln("  value = %v", str.value)
+
     case .Plus:
         plus := cast(^Ast_Plus)ast
 
