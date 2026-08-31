@@ -9,8 +9,12 @@ import "core:reflect"
 Ast_Type :: enum {
     Number,
     String,
+   
+    Negate,
+
     Plus,
     Times,
+    Minus,
 }
 
 Ast :: struct {
@@ -43,6 +47,14 @@ Ast_String :: struct {
     value: string,
 }
 
+Ast_Unary_Operator :: struct {
+    using expr: Ast_Expression,
+
+    operand: ^Ast_Expression,
+}
+
+Ast_Negate :: distinct Ast_Unary_Operator
+
 Ast_Binary_Operator :: struct {
     using expr: Ast_Expression,
 
@@ -51,13 +63,16 @@ Ast_Binary_Operator :: struct {
 }
 
 Ast_Plus :: distinct Ast_Binary_Operator
+Ast_Minus :: distinct Ast_Binary_Operator
 Ast_Times :: distinct Ast_Binary_Operator
 
 ast_types := map[typeid]Ast_Type {
     Ast_Number = .Number,
     Ast_String = .String,
-    Ast_Plus = .Plus ,
-    Ast_Times = .Times ,
+    Ast_Negate = .Negate,
+    Ast_Plus = .Plus,
+    Ast_Minus = .Minus,
+    Ast_Times = .Times,
 }
 
 new_ast_node :: proc($T: typeid, line_start, char_start: int, line_end, char_end: int) -> ^T {
@@ -96,17 +111,25 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         dump_indent(indent)
         fmt.printfln("  value = %v", str.value)
 
+    case .Negate:
+        operator := cast(^Ast_Unary_Operator)ast
+
+        dump_indent(indent)
+        fmt.print("  operand = ")
+        dump_ast(operator.operand, indent + 1)
+
     case .Plus: fallthrough
+    case .Minus: fallthrough
     case .Times:
-        plus := cast(^Ast_Binary_Operator)ast
+        operator := cast(^Ast_Binary_Operator)ast
 
         dump_indent(indent)
         fmt.print("  left = ")
-        dump_ast(plus.left, indent + 1)
+        dump_ast(operator.left, indent + 1)
 
         dump_indent(indent)
         fmt.print("  right = ")
-        dump_ast(plus.right, indent + 1)
+        dump_ast(operator.right, indent + 1)
     }
     dump_indent(indent)
     fmt.println(")")
@@ -129,6 +152,7 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
 MIN_BINDING_POWER :: 10 // @Volatile: Must be updated with binding_powers.
 binding_powers := map[Token_Type]int{
     .Plus = 10,
+    .Minus = 10,
     .Star = 20,
 }
 
@@ -136,7 +160,6 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
     line_start := parser.line
     char_start := parser.char
 
-    // @Hack: Some hardcoded stuff here.
     left := parse_expression_leaf(parser)
     maybe_operator := peek_token(parser.lexer)
     binding_power, has_binding := binding_powers[maybe_operator.type]
@@ -150,9 +173,12 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
             right = parse_expression_leaf(parser)
         }
         
+        // @Incomplete: Parse all operator types.
         ast_operator: ^Ast_Binary_Operator
         if maybe_operator.type == .Plus {
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, line_start, char_start, parser.line, parser.char)
+        } else if maybe_operator.type == .Minus {
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, line_start, char_start, parser.line, parser.char)
         } else if maybe_operator.type == .Star {
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, line_start, char_start, parser.line, parser.char)
         }
@@ -173,23 +199,44 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     line_start := parser.line
     char_start := parser.char
 
+    is_negate := false
+
     token := lex_token(parser.lexer)
-    #partial switch token.type {
-    case .Number:
-        expr := new_ast_node(Ast_Number, line_start, char_start, parser.line, parser.char)
-        expr.value = token.value.number
-
-        return expr
-
-    case .String:
-        expr := new_ast_node(Ast_String, line_start, char_start, parser.line, parser.char)
-        expr.value = token.value.str
-
-        return expr
-
-    case:
-        report_internal_error("Unsupported token type %v when parsing an expression leaf", token.type)
+    if token.type == .Minus {
+        is_negate = true
+        token = lex_token(parser.lexer)
     }
 
-    unreachable()
+    expr: ^Ast_Expression
+    if token.type == .LeftParen {
+        expr = parse_expression(parser)
+        token = lex_token(parser.lexer)
+        if token.type != .RightParen {
+            report_parse_error(parser, expr, "Expected a ')', but got %v.", token.code)
+        }
+    } else {
+        #partial switch token.type {
+        case .Number:
+            ast := new_ast_node(Ast_Number, line_start, char_start, parser.line, parser.char)
+
+            ast.value = token.value.number
+            expr = cast(^Ast_Expression)ast
+
+        case .String:
+            ast := new_ast_node(Ast_String, line_start, char_start, parser.line, parser.char)
+            ast.value = token.value.str
+            expr = cast(^Ast_Expression)ast
+
+        case:
+            report_internal_error("Unsupported token type %v when parsing an expression leaf.", token.type)
+        }
+    }
+
+    if is_negate {
+        negate := new_ast_node(Ast_Negate, line_start, char_start, parser.line, parser.char)
+        negate.operand = expr
+        return negate
+    } else {
+        return expr
+    }
 }
