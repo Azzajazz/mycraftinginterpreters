@@ -1,0 +1,15 @@
+#stdout
+b237:Identifier andy null
+Identifier formless null
+Identifier fo null
+Identifier _ null
+Identifier _123 null
+Identifier _abc null
+Identifier ab123 null
+Identifier abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_ null
+Eof  null
+
+#exit_code
+i:0
+#stderr
+b0:

@@ -1,0 +1,9 @@
+#command
+l:
+b4:odin
+b3:run
+b1:.
+b2:--
+b28:test/scanning/whitespace.lox
+b9:-lex-only
+lend
