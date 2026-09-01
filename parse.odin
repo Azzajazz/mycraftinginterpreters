@@ -7,6 +7,10 @@ import "core:os"
 import "core:reflect"
 
 Ast_Type :: enum {
+    // Statements that are not expressions.
+    Print,
+
+    // Expressions.
     Number,
     String,
    
@@ -30,6 +34,12 @@ Ast :: struct {
 
 Ast_Statement :: struct {
     using ast: Ast,
+}
+
+Ast_Print :: struct {
+    using stmt: Ast_Statement,
+
+    expr: ^Ast_Expression,
 }
 
 Ast_Expression :: struct {
@@ -68,6 +78,7 @@ Ast_Minus :: distinct Ast_Binary_Operator
 Ast_Times :: distinct Ast_Binary_Operator
 
 ast_types := map[typeid]Ast_Type {
+    Ast_Print = .Print,
     Ast_Number = .Number,
     Ast_String = .String,
     Ast_Negate = .Negate,
@@ -101,6 +112,14 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     enum_field, _ := reflect.enum_name_from_value(ast.type)
     fmt.printfln("%v(", enum_field)
     switch ast.type {
+    case .Print:
+        print := cast(^Ast_Print)ast
+
+        dump_indent(indent)
+        fmt.print("  expr = ")
+
+        dump_ast(print.expr, indent + 1)
+
     case .Number:
         number := cast(^Ast_Number)ast
 
@@ -154,9 +173,33 @@ parse_all :: proc(parser: ^Parser) -> []^Ast {
 }
 
 parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
-    expr := parse_expression(parser)
+    line_start := parser.line
+    char_start := parser.char
+
+    stmt: ^Ast_Statement
+
+    token := peek_token(parser.lexer)
+
+    if token.type == .Eof {
+        return nil
+    }
+
+    #partial switch token.type {
+        case .Print:
+            lex_token(parser.lexer) // Consume the 'print' keyword.
+            expr := parse_expression(parser)
+
+            print := new_ast_node(Ast_Print, parser.file_name, line_start, char_start, parser.line, parser.char)
+            print.expr = expr
+
+            stmt = cast(^Ast_Statement)print
+
+        case:
+            stmt = cast(^Ast_Statement)parse_expression(parser)
+    }
+
     expect_token(parser.lexer, .Semicolon, ";")
-    return expr
+    return stmt
 }
 
 MIN_BINDING_POWER :: 10 // @Volatile: Must be updated with binding_powers.
@@ -173,6 +216,7 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
     left := parse_expression_leaf(parser)
     maybe_operator := peek_token(parser.lexer)
     binding_power, has_binding := binding_powers[maybe_operator.type]
+
     for has_binding {
         lex_token(parser.lexer) // Actually consume the operator.
         
@@ -209,16 +253,16 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     line_start := parser.line
     char_start := parser.char
 
-    is_negate := false
-
     token := lex_token(parser.lexer)
-    if token.type == .Minus {
-        is_negate = true
-        token = lex_token(parser.lexer)
-    }
 
     if token.type == .Eof {
         return nil
+    }
+
+    is_negate := false
+    if token.type == .Minus {
+        is_negate = true
+        token = lex_token(parser.lexer)
     }
 
     expr: ^Ast_Expression

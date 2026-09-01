@@ -36,6 +36,7 @@ Token_Type :: enum {
     If, 
     Nil, 
     Or, 
+    Print,
     Return, 
     Super, 
     This, 
@@ -320,6 +321,9 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     case identifier == "or": 
         token.type = .Or
         token.code = "or"
+    case identifier == "print": 
+        token.type = .Print
+        token.code = "print"
     case identifier == "return": 
         token.type = .Return
         token.code = "return"
