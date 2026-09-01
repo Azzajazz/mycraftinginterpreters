@@ -1,0 +1,8 @@
+#command
+l:
+b4:odin
+b3:run
+b1:.
+b2:--
+b21:test/operator/add.lox
+lend

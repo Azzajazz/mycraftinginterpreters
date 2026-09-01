@@ -13,6 +13,7 @@ Ast_Type :: enum {
     // Expressions.
     Number,
     String,
+    Nil,
    
     Negate,
 
@@ -58,6 +59,10 @@ Ast_String :: struct {
     value: string,
 }
 
+Ast_Nil :: struct {
+    using expr: Ast_Expression,
+}
+
 Ast_Unary_Operator :: struct {
     using expr: Ast_Expression,
 
@@ -81,6 +86,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Print = .Print,
     Ast_Number = .Number,
     Ast_String = .String,
+    Ast_Nil = .Nil,
     Ast_Negate = .Negate,
     Ast_Plus = .Plus,
     Ast_Minus = .Minus,
@@ -131,6 +137,12 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
         dump_indent(indent)
         fmt.printfln("  value = %v", str.value)
+
+    case .Nil:
+        ast_nil := cast(^Ast_Nil)ast
+
+        dump_indent(indent)
+        fmt.println("  nil")
 
     case .Negate:
         operator := cast(^Ast_Unary_Operator)ast
@@ -280,6 +292,10 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         case .String:
             ast := new_ast_node(Ast_String, parser.file_name, line_start, char_start, parser.line, parser.char)
             ast.value = token.value.str
+            expr = cast(^Ast_Expression)ast
+
+        case .Nil:
+            ast := new_ast_node(Ast_Nil, parser.file_name, line_start, char_start, parser.line, parser.char)
             expr = cast(^Ast_Expression)ast
 
         case:

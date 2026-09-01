@@ -68,11 +68,13 @@ main :: proc() {
         os.exit(0)
     }
 
-
+    // @Leaky leaky leaky
+    // @Leaky leaky leaky
+    // @Leaky leaky leaky
+    // @Leaky leaky leaky
+    // @Leaky leaky leaky
     interp := Interp{}
     for ast in program {
-        ast_expr := cast(^Ast_Expression)ast
-        value := evaluate_expression(&interp, ast_expr)
-        fmt.println(value.value.number)
+        evaluate(&interp, ast)
     }
 }

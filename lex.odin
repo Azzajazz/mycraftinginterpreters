@@ -16,6 +16,8 @@ Token_Type :: enum {
     Plus,
     Minus,
     Star,
+    Bang,
+    Equal,
     BangEqual,
     EqualEqual,
     LessEqual,
@@ -142,7 +144,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
 
         // If we get here, then this is a string literal, a number, an identifier or a keyword.
         if c == '"' {
-            // @Robustness: We should probaly copy the string out of the code here.
+            // @Robustness: We should probaly copy the string value out of the code here.
             string_start_index := lexer.code_index
             advance_lexer(lexer, 1)
             for lexer.code_index < len(lexer.code) && lexer.code[lexer.code_index] != '"' {
@@ -162,7 +164,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             assert(string_start_index <= lexer.code_index - 2)
             token.type = .String
             token.code = lexer.code[string_start_index:lexer.code_index]
-            token.value.str = lexer.code[string_start_index + 1:lexer.code_index - 1]
+            token.value.str = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1]) // @Leak
         } else if '0' <= c && c <= '9' {
             number_start_index := lexer.code_index
 
@@ -231,7 +233,9 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
                     token.code = "!="
                     advance_lexer(lexer, 2)
                 } else {
-                    report_internal_error("TODO: Bang for booleans")
+                    token.type = .Bang
+                    token.code = "!"
+                    advance_lexer(lexer, 1)
                 }
             case '=':
                 if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
@@ -239,7 +243,9 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
                     token.code = "=="
                     advance_lexer(lexer, 2)
                 } else {
-                    report_internal_error("TODO: '=' for assignment")
+                    token.type = .Equal
+                    token.code = "="
+                    advance_lexer(lexer, 1)
                 }
             case '<':
                 if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
