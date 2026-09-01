@@ -77,6 +77,16 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
     os.exit(1)
 }
 
+expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string) -> Token {
+    token := lex_token(lexer)
+
+    if token.type != token_type {
+        report_lex_error(lexer, token, "Expected '%v', but got '%v'.", code, token.code)
+    }
+
+    return token
+}
+
 advance_lexer :: proc(lexer: ^Lexer, steps: int) {
     for _ in 0..<steps {
         if lexer.code_index >= len(lexer.code) do break

@@ -154,7 +154,9 @@ parse_all :: proc(parser: ^Parser) -> []^Ast {
 }
 
 parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
-    return parse_expression(parser)
+    expr := parse_expression(parser)
+    expect_token(parser.lexer, .Semicolon, ";")
+    return expr
 }
 
 MIN_BINDING_POWER :: 10 // @Volatile: Must be updated with binding_powers.
@@ -222,10 +224,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     expr: ^Ast_Expression
     if token.type == .LeftParen {
         expr = parse_expression(parser)
-        token = lex_token(parser.lexer)
-        if token.type != .RightParen {
-            report_error(expr, "Expected a ')', but got %v.", token.code)
-        }
+        expect_token(parser.lexer, .RightParen, ")")
     } else {
         #partial switch token.type {
         case .Number:

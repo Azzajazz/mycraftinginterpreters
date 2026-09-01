@@ -5,4 +5,5 @@ b3:run
 b1:.
 b2:--
 b29:test/expressions/evaluate.lox
+b10:-expr-mode
 lend

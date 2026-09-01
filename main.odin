@@ -12,6 +12,7 @@ report_internal_error :: proc(format: string, args: ..any) {
 
 Options :: struct {
     source_file: string `args:"pos=0,required" usage:"The source file to interpret."`,
+    expr_mode: bool `usage:"Evaluate a single expression only. Used for testing."`,
     lex_only: bool `usage:"Only lex the input."`,
     parse_only: bool `usage:"Only parse the input."`,
     ast_dump: bool `usage:"Dump the parsed AST."`,
@@ -39,6 +40,23 @@ main :: proc() {
     }
 
     parser := Parser{lexer = &lexer}
+    if options.expr_mode {
+        expr := parse_expression(&parser)
+
+        if options.ast_dump {
+            dump_ast(expr)
+        }
+
+        if options.parse_only {
+            os.exit(0)
+        }
+
+        interp := Interp{}
+        value := evaluate_expression(&interp, expr)
+        fmt.println(value.value.number)
+        os.exit(0)
+    }
+
     program := parse_all(&parser)
     if options.ast_dump {
         for ast in program {
@@ -49,6 +67,7 @@ main :: proc() {
     if options.parse_only {
         os.exit(0)
     }
+
 
     interp := Interp{}
     for ast in program {

@@ -1,5 +1,7 @@
 #exit_code
 i:0
+#stderr
+b0:
 #stdout
 b255:Plus(
   left = Minus(
@@ -22,5 +24,3 @@ b255:Plus(
   )
 )
 
-#stderr
-b0:
