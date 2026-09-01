@@ -20,6 +20,7 @@ Ast_Type :: enum {
 Ast :: struct {
     type: Ast_Type,
 
+    file_name: string,
     line_start: int,
     char_start: int,
 
@@ -75,10 +76,11 @@ ast_types := map[typeid]Ast_Type {
     Ast_Times = .Times,
 }
 
-new_ast_node :: proc($T: typeid, line_start, char_start: int, line_end, char_end: int) -> ^T {
+new_ast_node :: proc($T: typeid, file_name: string, line_start, char_start: int, line_end, char_end: int) -> ^T {
     ast := new(T)
     ast.type = ast_types[T]
 
+    ast.file_name = file_name
     ast.line_start = line_start
     ast.char_start = char_start
     ast.line_end = line_end
@@ -135,12 +137,6 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     fmt.println(")")
 }
 
-report_parse_error :: proc(parser: ^Parser, ast: Ast, format: string, args: ..any) {
-    fmt.eprintf("%v(%v:%v) Error: ", parser.file_name, ast.line_start + 1, ast.char_start + 1)
-    fmt.eprintfln(format, ..args)
-    os.exit(1)
-}
-
 Parser :: struct {
     using lexer: ^Lexer,
 }
@@ -188,11 +184,11 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
         // @Incomplete: Parse all operator types.
         ast_operator: ^Ast_Binary_Operator
         if maybe_operator.type == .Plus {
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, line_start, char_start, parser.line, parser.char)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, parser.file_name, line_start, char_start, parser.line, parser.char)
         } else if maybe_operator.type == .Minus {
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, line_start, char_start, parser.line, parser.char)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, parser.file_name, line_start, char_start, parser.line, parser.char)
         } else if maybe_operator.type == .Star {
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, line_start, char_start, parser.line, parser.char)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, parser.file_name, line_start, char_start, parser.line, parser.char)
         }
         assert(ast_operator != nil)
         ast_operator.left = left
@@ -228,18 +224,18 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         expr = parse_expression(parser)
         token = lex_token(parser.lexer)
         if token.type != .RightParen {
-            report_parse_error(parser, expr, "Expected a ')', but got %v.", token.code)
+            report_error(expr, "Expected a ')', but got %v.", token.code)
         }
     } else {
         #partial switch token.type {
         case .Number:
-            ast := new_ast_node(Ast_Number, line_start, char_start, parser.line, parser.char)
+            ast := new_ast_node(Ast_Number, parser.file_name, line_start, char_start, parser.line, parser.char)
 
             ast.value = token.value.number
             expr = cast(^Ast_Expression)ast
 
         case .String:
-            ast := new_ast_node(Ast_String, line_start, char_start, parser.line, parser.char)
+            ast := new_ast_node(Ast_String, parser.file_name, line_start, char_start, parser.line, parser.char)
             ast.value = token.value.str
             expr = cast(^Ast_Expression)ast
 
@@ -249,7 +245,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     }
 
     if is_negate {
-        negate := new_ast_node(Ast_Negate, line_start, char_start, parser.line, parser.char)
+        negate := new_ast_node(Ast_Negate, parser.file_name, line_start, char_start, parser.line, parser.char)
         negate.operand = expr
         return negate
     } else {

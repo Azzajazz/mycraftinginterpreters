@@ -1,5 +1,8 @@
 package lox
 
+import "core:fmt"
+import "core:os"
+
 Value_Type :: enum {
     String,
     Number,
@@ -17,6 +20,12 @@ Interp :: struct {
     variables: map[string]Value,
 }
 
+report_error :: proc(ast: Ast, format: string, args: ..any) {
+    fmt.eprintf("%v(%v:%v) Error: ", ast.file_name, ast.line_start + 1, ast.char_start + 1)
+    fmt.eprintfln(format, ..args)
+    os.exit(1)
+}
+
 evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
     #partial switch expr.type {
         case .Number:
@@ -30,38 +39,52 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
         case .Negate:
             ast_negate := cast(^Ast_Negate)expr
             operand := evaluate_expression(interp, ast_negate.operand)
-            // @Robustness: Error message here.
-            assert(operand.type == .Number)
+
+            if operand.type != .Number {
+                report_error(expr, "The negation operator '-' can only be applied to numbers. This variable has type %v.", operand.type)
+            }
+
             return Value{type = .Number, value = {number = -operand.value.number}}
 
         case .Plus:
             ast_plus := cast(^Ast_Plus)expr
             left := evaluate_expression(interp, ast_plus.left)
             right := evaluate_expression(interp, ast_plus.right)
-            // @Robustness @Incomplete: Error messages and support for string '+'.
-            assert(left.type == .Number)
-            assert(right.type == .Number)
+
+            // @Incomplete: Implement addition for more types.
+            if left.type != .Number || right.type != .Number {
+                report_internal_error("Addition is only implemented for number types.")
+            }
+
             return Value{type = .Number, value = {number = left.value.number + right.value.number}}
 
         case .Times:
             ast_times := cast(^Ast_Times)expr
             left := evaluate_expression(interp, ast_times.left)
             right := evaluate_expression(interp, ast_times.right)
-            // @Robustness @Incomplete: Error messages and support for string '+'.
-            assert(left.type == .Number)
-            assert(right.type == .Number)
+
+            // @Incomplete: Implement multiplication for more types.
+            if left.type != .Number || right.type != .Number {
+                report_internal_error("Multiplication is only implemented for number types.")
+            }
+
             return Value{type = .Number, value = {number = left.value.number * right.value.number}}
 
         case .Minus:
             ast_minus := cast(^Ast_Minus)expr
             left := evaluate_expression(interp, ast_minus.left)
             right := evaluate_expression(interp, ast_minus.right)
-            // @Robustness @Incomplete: Error messages and support for string '+'.
-            assert(left.type == .Number)
-            assert(right.type == .Number)
+
+            // @Incomplete: Implement subtraction for more types.
+            if left.type != .Number || right.type != .Number {
+                report_internal_error("Subtraction is only implemented for number types.")
+            }
+
             return Value{type = .Number, value = {number = left.value.number - right.value.number}}
 
         case:
-            panic("Ahhhhh!")
+            report_internal_error("AST type %v is not an expression type.", expr.type)
     }
+
+    unreachable()
 }
