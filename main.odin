@@ -13,6 +13,8 @@ report_internal_error :: proc(format: string, args: ..any) {
 Options :: struct {
     source_file: string `args:"pos=0,required" usage:"The source file to interpret."`,
     lex_only: bool `usage:"Only lex the input."`,
+    parse_only: bool `usage:"Only parse the input."`,
+    ast_dump: bool `usage:"Dump the parsed AST."`,
 }
 options: Options
 
@@ -26,16 +28,32 @@ main :: proc() {
         os.exit(1)
     }
 
-        lexer := Lexer{file_name = options.source_file, code = cast(string)source_file_data, code_index = 0}
+    lexer := Lexer{file_name = options.source_file, code = cast(string)source_file_data, code_index = 0}
     if options.lex_only {
         token: Token
         for token.type != .Eof {
             token = lex_token(&lexer)
             dump_token(token)
         }
-    } else {
-        parser := Parser{lexer = &lexer}
-        ast := parse_statement(&parser)
-        dump_ast(ast)
+        os.exit(0)
+    }
+
+    parser := Parser{lexer = &lexer}
+    program := parse_all(&parser)
+    if options.ast_dump {
+        for ast in program {
+            dump_ast(ast)
+        }
+    }
+
+    if options.parse_only {
+        os.exit(0)
+    }
+
+    interp := Interp{}
+    for ast in program {
+        ast_expr := cast(^Ast_Expression)ast
+        value := evaluate_expression(&interp, ast_expr)
+        fmt.println(value.value.number)
     }
 }

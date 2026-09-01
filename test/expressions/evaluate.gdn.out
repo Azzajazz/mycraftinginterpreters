@@ -1,7 +1,7 @@
 #stdout
+b2:2
+
+#stderr
 b0:
 #exit_code
-i:1
-#stderr
-b33:Error: Unexpected character '('.
-
+i:0

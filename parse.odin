@@ -145,6 +145,18 @@ Parser :: struct {
     using lexer: ^Lexer,
 }
 
+parse_all :: proc(parser: ^Parser) -> []^Ast {
+    program: [dynamic]^Ast
+
+    statement := parse_statement(parser)
+    for statement != nil {
+        append(&program, statement)
+        statement = parse_statement(parser)
+    }
+
+    return program[:]
+}
+
 parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
     return parse_expression(parser)
 }
@@ -205,6 +217,10 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     if token.type == .Minus {
         is_negate = true
         token = lex_token(parser.lexer)
+    }
+
+    if token.type == .Eof {
+        return nil
     }
 
     expr: ^Ast_Expression

@@ -1,7 +1,26 @@
-#stdout
-b0:
 #exit_code
-i:1
-#stderr
-b33:Error: Unexpected character '('.
+i:0
+#stdout
+b255:Plus(
+  left = Minus(
+    left = Number(
+      value = 5
+    )
+    right = Minus(
+      left = Number(
+        value = 3
+      )
+      right = Number(
+        value = 1
+      )
+    )
+  )
+  right = Negate(
+    operand = Number(
+      value = 1
+    )
+  )
+)
 
+#stderr
+b0:
