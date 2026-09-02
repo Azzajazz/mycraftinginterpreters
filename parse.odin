@@ -13,6 +13,7 @@ Ast_Type :: enum {
     // Expressions.
     Number,
     String,
+    Bool,
     Nil,
    
     Negate,
@@ -59,6 +60,12 @@ Ast_String :: struct {
     value: string,
 }
 
+Ast_Bool :: struct {
+    using expr: Ast_Expression,
+
+    value: bool,
+}
+
 Ast_Nil :: struct {
     using expr: Ast_Expression,
 }
@@ -86,6 +93,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Print = .Print,
     Ast_Number = .Number,
     Ast_String = .String,
+    Ast_Bool = .Bool,
     Ast_Nil = .Nil,
     Ast_Negate = .Negate,
     Ast_Plus = .Plus,
@@ -137,6 +145,12 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
         dump_indent(indent)
         fmt.printfln("  value = %v", str.value)
+
+    case .Bool:
+        boolean := cast(^Ast_Bool)ast
+
+        dump_indent(indent)
+        fmt.printfln("  value = %v", boolean.value)
 
     case .Nil:
         ast_nil := cast(^Ast_Nil)ast
@@ -292,6 +306,16 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         case .String:
             ast := new_ast_node(Ast_String, parser.file_name, line_start, char_start, parser.line, parser.char)
             ast.value = token.value.str
+            expr = cast(^Ast_Expression)ast
+
+        case .True:
+            ast := new_ast_node(Ast_Bool, parser.file_name, line_start, char_start, parser.line, parser.char)
+            ast.value = true
+            expr = cast(^Ast_Expression)ast
+
+        case .False:
+            ast := new_ast_node(Ast_Bool, parser.file_name, line_start, char_start, parser.line, parser.char)
+            ast.value = false
             expr = cast(^Ast_Expression)ast
 
         case .Nil:

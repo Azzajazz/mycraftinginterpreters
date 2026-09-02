@@ -7,6 +7,7 @@ import "core:strings"
 Value_Type :: enum {
     String,
     Number,
+    Bool,
     Nil,
 }
 
@@ -15,6 +16,7 @@ Value :: struct {
     value: struct #raw_union {
         str: string,
         number: f32,
+        boolean: bool,
     },
 }
 
@@ -38,6 +40,8 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
                     fmt.println(value.value.number)
                 case .String:
                     fmt.println(value.value.str)
+                case .Bool:
+                    fmt.println(value.value.boolean)
                 case .Nil:
                     fmt.println("nil")
             }
@@ -57,6 +61,10 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
         case .String:
             ast_string := cast(^Ast_String)expr
             return Value{type = .String, value = {str = ast_string.value}}
+
+        case .Bool:
+            ast_bool := cast(^Ast_Bool)expr
+            return Value{type = .Bool, value = {boolean = ast_bool.value}}
 
         case .Nil:
             ast_nil := cast(^Ast_Nil)expr
