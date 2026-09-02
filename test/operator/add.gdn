@@ -1,8 +1,5 @@
 #command
 l:
-b4:odin
-b3:run
-b1:.
-b2:--
+b24:./mycraftinginterpreters
 b21:test/operator/add.lox
 lend

@@ -1,9 +1,6 @@
 #command
 l:
-b4:odin
-b3:run
-b1:.
-b2:--
+b24:./mycraftinginterpreters
 b29:test/scanning/identifiers.lox
 b9:-lex-only
 lend

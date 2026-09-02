@@ -1,8 +1,5 @@
 #command
 l:
-b4:odin
-b3:run
-b1:.
-b2:--
+b24:./mycraftinginterpreters
 b32:test/operator/add_string_nil.lox
 lend
