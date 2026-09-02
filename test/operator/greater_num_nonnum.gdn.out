@@ -1,0 +1,8 @@
+#stdout
+b0:
+#exit_code
+i:1
+#stderr
+b75:ERROR: Could not open source file test/operator/greater_num_nonnum.lox
+le.
+

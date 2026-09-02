@@ -1,0 +1,7 @@
+#stdout
+b0:
+#exit_code
+i:1
+#stderr
+b160:test/operator/less_num_nonnum.lox(1:1) Error: '<' is defined only on two Numbers. Here, the left operand has type Number and the right operand has type String.
+

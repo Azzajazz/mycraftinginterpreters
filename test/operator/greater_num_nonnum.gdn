@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b39:test/operator/greater_num_nonnum.lox
+lend

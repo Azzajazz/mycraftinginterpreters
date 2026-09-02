@@ -129,7 +129,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
             // @Incomplete: Implement subtraction for more types.
             if left.type != .Number || right.type != .Number {
-                report_internal_error("Less is only implemented for number types.")
+                report_error(expr, "'<' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
             }
 
             return Value{type = .Bool, value = {boolean = left.value.number < right.value.number}}
@@ -141,7 +141,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
             // @Incomplete: Implement subtraction for more types.
             if left.type != .Number || right.type != .Number {
-                report_internal_error("Less equal is only implemented for number types.")
+                report_error(expr, "'<=' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
             }
 
             return Value{type = .Bool, value = {boolean = left.value.number <= right.value.number}}
@@ -153,7 +153,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
             // @Incomplete: Implement subtraction for more types.
             if left.type != .Number || right.type != .Number {
-                report_internal_error("Greater is only implemented for number types.")
+                report_error(expr, "'>' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
             }
 
             return Value{type = .Bool, value = {boolean = left.value.number > right.value.number}}
@@ -165,7 +165,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
             // @Incomplete: Implement subtraction for more types.
             if left.type != .Number || right.type != .Number {
-                report_internal_error("Greater equal is only implemented for number types.")
+                report_error(expr, "'>=' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
             }
 
             return Value{type = .Bool, value = {boolean = left.value.number >= right.value.number}}
