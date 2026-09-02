@@ -47,12 +47,16 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
             }
 
         case:
-            // @Robustness: What if this is not an expression ast?
-            evaluate_expression(interp, cast(^Ast_Expression)ast)
+            if is_expression(ast) {
+                evaluate_expression(interp, cast(^Ast_Expression)ast)
+            } else {
+                report_internal_error("Could not evaluate AST of type %v!", ast.type)
+            }
     }
 }
 
 evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
+    assert(is_expression(expr))
     #partial switch expr.type {
         case .Number:
             ast_number := cast(^Ast_Number)expr

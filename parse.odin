@@ -6,6 +6,12 @@ import "core:fmt"
 import "core:os"
 import "core:reflect"
 
+// @TODO: Adding new AST nodes is error-prone and requires:
+//   - adding an entry to Ast_Type
+//   - defining the new AST structure
+//   - adding the mapping to ast_types.
+// Surely we can automate some of this?
+
 Ast_Type :: enum {
     // Statements that are not expressions.
     Print,
@@ -99,6 +105,12 @@ ast_types := map[typeid]Ast_Type {
     Ast_Plus = .Plus,
     Ast_Minus = .Minus,
     Ast_Times = .Times,
+}
+
+// @Volatile: Must be kept in sync with Ast_Type.
+is_expression :: proc(ast: ^Ast) -> bool {
+    expression_min := cast(int)Ast_Type.Number
+    return cast(int)ast.type >= expression_min
 }
 
 new_ast_node :: proc($T: typeid, file_name: string, line_start, char_start: int, line_end, char_end: int) -> ^T {
