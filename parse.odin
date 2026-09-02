@@ -27,6 +27,11 @@ Ast_Type :: enum {
     Plus,
     Times,
     Minus,
+
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 }
 
 Ast :: struct {
@@ -94,6 +99,10 @@ Ast_Binary_Operator :: struct {
 Ast_Plus :: distinct Ast_Binary_Operator
 Ast_Minus :: distinct Ast_Binary_Operator
 Ast_Times :: distinct Ast_Binary_Operator
+Ast_Less :: distinct Ast_Binary_Operator
+Ast_LessEqual :: distinct Ast_Binary_Operator
+Ast_Greater :: distinct Ast_Binary_Operator
+Ast_GreaterEqual :: distinct Ast_Binary_Operator
 
 ast_types := map[typeid]Ast_Type {
     Ast_Print = .Print,
@@ -105,6 +114,10 @@ ast_types := map[typeid]Ast_Type {
     Ast_Plus = .Plus,
     Ast_Minus = .Minus,
     Ast_Times = .Times,
+    Ast_Less = .Less,
+    Ast_LessEqual = .LessEqual,
+    Ast_Greater = .Greater,
+    Ast_GreaterEqual = .GreaterEqual,
 }
 
 // @Volatile: Must be kept in sync with Ast_Type.
@@ -179,7 +192,11 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
     case .Plus: fallthrough
     case .Minus: fallthrough
-    case .Times:
+    case .Times: fallthrough
+    case .Less: fallthrough
+    case .LessEqual: fallthrough
+    case .Greater: fallthrough
+    case .GreaterEqual:
         operator := cast(^Ast_Binary_Operator)ast
 
         dump_indent(indent)
@@ -240,8 +257,12 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
     return stmt
 }
 
-MIN_BINDING_POWER :: 10 // @Volatile: Must be updated with binding_powers.
+MIN_BINDING_POWER :: 5 // @Volatile: Must be updated with binding_powers.
 binding_powers := map[Token_Type]int{
+    .Less = 5,
+    .LessEqual = 5,
+    .Greater = 5,
+    .GreaterEqual = 5,
     .Plus = 10,
     .Minus = 10,
     .Star = 20,
@@ -267,13 +288,23 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
         
         // @Incomplete: Parse all operator types.
         ast_operator: ^Ast_Binary_Operator
-        if maybe_operator.type == .Plus {
+        #partial switch maybe_operator.type {
+        case .Plus:
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, parser.file_name, line_start, char_start, parser.line, parser.char)
-        } else if maybe_operator.type == .Minus {
+        case .Minus:
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, parser.file_name, line_start, char_start, parser.line, parser.char)
-        } else if maybe_operator.type == .Star {
+        case .Star:
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, parser.file_name, line_start, char_start, parser.line, parser.char)
+        case .Less:
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Less, parser.file_name, line_start, char_start, parser.line, parser.char)
+        case .LessEqual:
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_LessEqual, parser.file_name, line_start, char_start, parser.line, parser.char)
+        case .Greater:
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Greater, parser.file_name, line_start, char_start, parser.line, parser.char)
+        case .GreaterEqual:
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_GreaterEqual, parser.file_name, line_start, char_start, parser.line, parser.char)
         }
+
         assert(ast_operator != nil)
         ast_operator.left = left
         ast_operator.right = right

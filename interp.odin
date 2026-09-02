@@ -122,6 +122,54 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
             return Value{type = .Number, value = {number = left.value.number - right.value.number}}
 
+        case .Less:
+            ast_less := cast(^Ast_Less)expr
+            left := evaluate_expression(interp, ast_less.left)
+            right := evaluate_expression(interp, ast_less.right)
+
+            // @Incomplete: Implement subtraction for more types.
+            if left.type != .Number || right.type != .Number {
+                report_internal_error("Less is only implemented for number types.")
+            }
+
+            return Value{type = .Bool, value = {boolean = left.value.number < right.value.number}}
+
+        case .LessEqual:
+            ast_less_equal := cast(^Ast_LessEqual)expr
+            left := evaluate_expression(interp, ast_less_equal.left)
+            right := evaluate_expression(interp, ast_less_equal.right)
+
+            // @Incomplete: Implement subtraction for more types.
+            if left.type != .Number || right.type != .Number {
+                report_internal_error("Less equal is only implemented for number types.")
+            }
+
+            return Value{type = .Bool, value = {boolean = left.value.number <= right.value.number}}
+
+        case .Greater:
+            ast_greater := cast(^Ast_Greater)expr
+            left := evaluate_expression(interp, ast_greater.left)
+            right := evaluate_expression(interp, ast_greater.right)
+
+            // @Incomplete: Implement subtraction for more types.
+            if left.type != .Number || right.type != .Number {
+                report_internal_error("Greater is only implemented for number types.")
+            }
+
+            return Value{type = .Bool, value = {boolean = left.value.number > right.value.number}}
+
+        case .GreaterEqual:
+            ast_greater_equal := cast(^Ast_GreaterEqual)expr
+            left := evaluate_expression(interp, ast_greater_equal.left)
+            right := evaluate_expression(interp, ast_greater_equal.right)
+
+            // @Incomplete: Implement subtraction for more types.
+            if left.type != .Number || right.type != .Number {
+                report_internal_error("Greater equal is only implemented for number types.")
+            }
+
+            return Value{type = .Bool, value = {boolean = left.value.number >= right.value.number}}
+
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)
     }

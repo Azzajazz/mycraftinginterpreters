@@ -1,0 +1,8 @@
+#command
+l:
+b4:odin
+b3:run
+b1:.
+b2:--
+b28:test/operator/comparison.lox
+lend
