@@ -27,7 +27,9 @@ Ast_Type :: enum {
     Plus,
     Times,
     Minus,
+    Divide,
 
+    Equal,
     Less,
     LessEqual,
     Greater,
@@ -99,6 +101,8 @@ Ast_Binary_Operator :: struct {
 Ast_Plus :: distinct Ast_Binary_Operator
 Ast_Minus :: distinct Ast_Binary_Operator
 Ast_Times :: distinct Ast_Binary_Operator
+Ast_Divide :: distinct Ast_Binary_Operator
+Ast_Equal :: distinct Ast_Binary_Operator
 Ast_Less :: distinct Ast_Binary_Operator
 Ast_LessEqual :: distinct Ast_Binary_Operator
 Ast_Greater :: distinct Ast_Binary_Operator
@@ -114,6 +118,8 @@ ast_types := map[typeid]Ast_Type {
     Ast_Plus = .Plus,
     Ast_Minus = .Minus,
     Ast_Times = .Times,
+    Ast_Divide = .Divide,
+    Ast_Equal = .Equal,
     Ast_Less = .Less,
     Ast_LessEqual = .LessEqual,
     Ast_Greater = .Greater,
@@ -193,6 +199,8 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     case .Plus: fallthrough
     case .Minus: fallthrough
     case .Times: fallthrough
+    case .Divide: fallthrough
+    case .Equal: fallthrough
     case .Less: fallthrough
     case .LessEqual: fallthrough
     case .Greater: fallthrough
@@ -263,9 +271,11 @@ binding_powers := map[Token_Type]int{
     .LessEqual = 5,
     .Greater = 5,
     .GreaterEqual = 5,
+    .EqualEqual = 6,
     .Plus = 10,
     .Minus = 10,
     .Star = 20,
+    .Slash = 20,
 }
 
 parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER) -> ^Ast_Expression {
@@ -295,6 +305,10 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, parser.file_name, line_start, char_start, parser.line, parser.char)
         case .Star:
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, parser.file_name, line_start, char_start, parser.line, parser.char)
+        case .Slash:
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Divide, parser.file_name, line_start, char_start, parser.line, parser.char)
+        case .EqualEqual:
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Equal, parser.file_name, line_start, char_start, parser.line, parser.char)
         case .Less:
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Less, parser.file_name, line_start, char_start, parser.line, parser.char)
         case .LessEqual:

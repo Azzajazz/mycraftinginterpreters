@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b19:test/precedence.lox
+lend

@@ -110,6 +110,18 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
             return Value{type = .Number, value = {number = left.value.number * right.value.number}}
 
+        case .Divide:
+            ast_divide := cast(^Ast_Divide)expr
+            left := evaluate_expression(interp, ast_divide.left)
+            right := evaluate_expression(interp, ast_divide.right)
+
+            // @Incomplete: Implement multiplication for more types.
+            if left.type != .Number || right.type != .Number {
+                report_internal_error("Division is only implemented for number types.")
+            }
+
+            return Value{type = .Number, value = {number = left.value.number / right.value.number}}
+
         case .Minus:
             ast_minus := cast(^Ast_Minus)expr
             left := evaluate_expression(interp, ast_minus.left)
@@ -122,12 +134,31 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
             return Value{type = .Number, value = {number = left.value.number - right.value.number}}
 
+        case .Equal:
+            ast_equal := cast(^Ast_Equal)expr
+            left := evaluate_expression(interp, ast_equal.left)
+            right := evaluate_expression(interp, ast_equal.right)
+
+            if left.type != right.type {
+                report_error(expr, "'==' is defined only when the two expressions are the same type. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
+            }
+
+            switch left.type {
+            case .Number:
+                return Value{type = .Bool, value = {boolean = left.value.number == right.value.number}}
+            case .String:
+                return Value{type = .Bool, value = {boolean = left.value.str == right.value.str}}
+            case .Bool:
+                return Value{type = .Bool, value = {boolean = left.value.boolean == right.value.boolean}}
+            case .Nil:
+                return Value{type = .Bool, value = {boolean = true}}
+            }
+
         case .Less:
             ast_less := cast(^Ast_Less)expr
             left := evaluate_expression(interp, ast_less.left)
             right := evaluate_expression(interp, ast_less.right)
 
-            // @Incomplete: Implement subtraction for more types.
             if left.type != .Number || right.type != .Number {
                 report_error(expr, "'<' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
             }
