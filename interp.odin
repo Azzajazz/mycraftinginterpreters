@@ -46,6 +46,11 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
                     fmt.println("nil")
             }
 
+        case .VarDefinition:
+            ast_var_def := cast(^Ast_Var_Definition)ast
+            value := evaluate_expression(interp, ast_var_def.value)
+            interp.variables[ast_var_def.name] = value
+
         case:
             if is_expression(ast) {
                 evaluate_expression(interp, cast(^Ast_Expression)ast)
@@ -200,6 +205,15 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
             }
 
             return Value{type = .Bool, value = {boolean = left.value.number >= right.value.number}}
+
+        case .Var:
+            ast_var := cast(^Ast_Var)expr
+            value, value_found := interp.variables[ast_var.name]
+            
+            if !value_found {
+                report_error(expr, "Variable %v was used, but it hasn't been defined.", ast_var.name)
+            }
+            return value
 
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)

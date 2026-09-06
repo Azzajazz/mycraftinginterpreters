@@ -306,6 +306,7 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             }
 
             var_def := new_ast_node(Ast_Var_Definition, parser.file_name, line_start, char_start, parser.line, parser.char)
+            var_def.name = name.code
             var_def.value = value
 
             stmt = cast(^Ast_Statement)var_def
