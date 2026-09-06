@@ -80,11 +80,15 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
     os.exit(1)
 }
 
-expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string) -> Token {
+expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -> Token {
     token := lex_token(lexer)
 
     if token.type != token_type {
-        report_lex_error(lexer, token, "Expected '%v', but got '%v'.", code, token.code)
+        if code == "" {
+            report_lex_error(lexer, token, "Expected '%v', but got '%v'.", token.type, token.code)
+        } else {
+            report_lex_error(lexer, token, "Expected '%v', but got '%v'.", code, token.code)
+        }
     }
 
     return token
@@ -350,7 +354,7 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
         token.code = "while"
     case:
         token.type = .Identifier
-        token.code = identifier
+        token.code = strings.clone(identifier) // @Leak
     }
 }
 

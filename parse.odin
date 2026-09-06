@@ -15,6 +15,7 @@ import "core:reflect"
 Ast_Type :: enum {
     // Statements that are not expressions.
     Print,
+    VarDefinition,
 
     // Expressions.
     Number,
@@ -34,6 +35,8 @@ Ast_Type :: enum {
     LessEqual,
     Greater,
     GreaterEqual,
+
+    Var,
 }
 
 Ast :: struct {
@@ -55,6 +58,13 @@ Ast_Print :: struct {
     using stmt: Ast_Statement,
 
     expr: ^Ast_Expression,
+}
+
+Ast_Var_Definition :: struct {
+    using stmt: Ast_Statement,
+
+    name: string,
+    value: ^Ast_Expression,
 }
 
 Ast_Expression :: struct {
@@ -108,8 +118,15 @@ Ast_LessEqual :: distinct Ast_Binary_Operator
 Ast_Greater :: distinct Ast_Binary_Operator
 Ast_GreaterEqual :: distinct Ast_Binary_Operator
 
+Ast_Var :: struct {
+    using expr: Ast_Expression,
+
+    name: string,
+}
+
 ast_types := map[typeid]Ast_Type {
     Ast_Print = .Print,
+    Ast_Var_Definition = .VarDefinition,
     Ast_Number = .Number,
     Ast_String = .String,
     Ast_Bool = .Bool,
@@ -124,6 +141,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_LessEqual = .LessEqual,
     Ast_Greater = .Greater,
     Ast_GreaterEqual = .GreaterEqual,
+    Ast_Var = .Var,
 }
 
 // @Volatile: Must be kept in sync with Ast_Type.
@@ -164,6 +182,17 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         fmt.print("  expr = ")
 
         dump_ast(print.expr, indent + 1)
+
+    case .VarDefinition:
+        var_def := cast(^Ast_Var_Definition)ast
+
+        dump_indent(indent)
+        fmt.printfln("  name = %v", var_def.name)
+
+        dump_indent(indent)
+        fmt.print("  value = ")
+
+        dump_ast(var_def.value, indent + 1)
 
     case .Number:
         number := cast(^Ast_Number)ast
@@ -214,6 +243,12 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         dump_indent(indent)
         fmt.print("  right = ")
         dump_ast(operator.right, indent + 1)
+
+    case .Var:
+        var := cast(^Ast_Var)ast
+
+        dump_indent(indent)
+        fmt.printfln("  name = %v", var.name)
     }
     dump_indent(indent)
     fmt.println(")")
@@ -256,6 +291,24 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             print.expr = expr
 
             stmt = cast(^Ast_Statement)print
+
+        case .Var:
+            lex_token(parser.lexer) // Consume the 'var' keyword.
+            name := expect_token(parser.lexer, .Identifier)
+            token = peek_token(parser.lexer)
+
+            value: ^Ast_Expression
+            if token.type == .Equal {
+                lex_token(parser.lexer) // Consume the 'equals'.
+                value = parse_expression(parser)
+            } else {
+                value = cast(^Ast_Expression)new_ast_node(Ast_Nil, parser.file_name, line_start, char_start, parser.line, parser.char)
+            }
+
+            var_def := new_ast_node(Ast_Var_Definition, parser.file_name, line_start, char_start, parser.line, parser.char)
+            var_def.value = value
+
+            stmt = cast(^Ast_Statement)var_def
 
         case:
             stmt = cast(^Ast_Statement)parse_expression(parser)
@@ -377,6 +430,12 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
 
         case .Nil:
             ast := new_ast_node(Ast_Nil, parser.file_name, line_start, char_start, parser.line, parser.char)
+            expr = cast(^Ast_Expression)ast
+
+        case .Identifier:
+            // @Incomplete: Parse function calls.
+            ast := new_ast_node(Ast_Var, parser.file_name, line_start, char_start, parser.line, parser.char)
+            ast.name = token.code
             expr = cast(^Ast_Expression)ast
 
         case:
