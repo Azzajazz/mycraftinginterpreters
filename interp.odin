@@ -97,7 +97,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
             if left.type == .Number && right.type == .Number {
                 return Value{type = .Number, value = {number = left.value.number + right.value.number}}
             } else if left.type == .String && right.type == .String {
-                new_string := strings.concatenate([]string{left.value.str, right.value.str}) // @Leak
+                new_string := strings.concatenate([]string{left.value.str, right.value.str})
                 return Value{type = .String, value = {str = new_string}}
             } else {
                 report_error(expr, "'+' is defined only on two Strings or two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)

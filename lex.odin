@@ -168,7 +168,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             assert(string_start_index <= lexer.code_index - 2)
             token.type = .String
             token.code = lexer.code[string_start_index:lexer.code_index]
-            token.value.str = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1]) // @Leak
+            token.value.str = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1])
         } else if '0' <= c && c <= '9' {
             number_start_index := lexer.code_index
 
@@ -354,7 +354,7 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
         token.code = "while"
     case:
         token.type = .Identifier
-        token.code = strings.clone(identifier) // @Leak
+        token.code = strings.clone(identifier)
     }
 }
 

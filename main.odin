@@ -71,11 +71,6 @@ main :: proc() {
             }
 
             if !options.parse_only {
-                // @Leaky leaky leaky
-                // @Leaky leaky leaky
-                // @Leaky leaky leaky
-                // @Leaky leaky leaky
-                // @Leaky leaky leaky
                 interp := Interp{}
                 for ast in program {
                     evaluate(&interp, ast)
