@@ -1,0 +1,7 @@
+#stdout
+b0:
+#stderr
+b85:test/variable/use_false_as_var.lox(2:5) Error: Expected Identifier, but got 'false'.
+
+#exit_code
+i:1

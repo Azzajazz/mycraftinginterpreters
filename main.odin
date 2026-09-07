@@ -3,6 +3,8 @@ package lox
 import "core:flags"
 import "core:os"
 import "core:fmt"
+import "core:mem"
+import vmem "core:mem/virtual"
 
 report_internal_error :: proc(format: string, args: ..any) {
     fmt.eprint("Internal error: ")
@@ -36,45 +38,55 @@ main :: proc() {
             token = lex_token(&lexer)
             dump_token(token)
         }
-        os.exit(0)
-    }
+    } else {
+        arena: vmem.Arena
+        err := vmem.arena_init_growing(&arena)
+        assert(err == nil)
+        context.allocator = vmem.arena_allocator(&arena)
 
-    parser := Parser{lexer = &lexer}
-    if options.expr_mode {
-        expr := parse_expression(&parser)
+        track: mem.Tracking_Allocator
+        mem.tracking_allocator_init(&track, context.allocator)
+        defer mem.tracking_allocator_destroy(&track)
+        context.allocator = mem.tracking_allocator(&track)
 
-        if options.ast_dump {
-            dump_ast(expr)
+        parser := Parser{lexer = &lexer}
+        if options.expr_mode {
+            expr := parse_expression(&parser)
+
+            if options.ast_dump {
+                dump_ast(expr)
+            }
+
+            if !options.parse_only {
+                interp := Interp{}
+                value := evaluate_expression(&interp, expr)
+                fmt.println(value.value.number)
+            }
+        } else {
+            program := parse_all(&parser)
+            if options.ast_dump {
+                for ast in program {
+                    dump_ast(ast)
+                }
+            }
+
+            if !options.parse_only {
+                // @Leaky leaky leaky
+                // @Leaky leaky leaky
+                // @Leaky leaky leaky
+                // @Leaky leaky leaky
+                // @Leaky leaky leaky
+                interp := Interp{}
+                for ast in program {
+                    evaluate(&interp, ast)
+                }
+            }
         }
 
-        if options.parse_only {
-            os.exit(0)
+        free_all(context.allocator)
+
+        for _, leak in track.allocation_map {
+            fmt.printfln("%v leaked %m", leak.location, leak.size)
         }
-
-        interp := Interp{}
-        value := evaluate_expression(&interp, expr)
-        fmt.println(value.value.number)
-        os.exit(0)
-    }
-
-    program := parse_all(&parser)
-    if options.ast_dump {
-        for ast in program {
-            dump_ast(ast)
-        }
-    }
-
-    if options.parse_only {
-        os.exit(0)
-    }
-
-    // @Leaky leaky leaky
-    // @Leaky leaky leaky
-    // @Leaky leaky leaky
-    // @Leaky leaky leaky
-    // @Leaky leaky leaky
-    interp := Interp{}
-    for ast in program {
-        evaluate(&interp, ast)
     }
 }

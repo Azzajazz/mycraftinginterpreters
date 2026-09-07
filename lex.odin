@@ -85,7 +85,7 @@ expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -
 
     if token.type != token_type {
         if code == "" {
-            report_lex_error(lexer, token, "Expected '%v', but got '%v'.", token.type, token.code)
+            report_lex_error(lexer, token, "Expected %v, but got '%v'.", token_type, token.code)
         } else {
             report_lex_error(lexer, token, "Expected '%v', but got '%v'.", code, token.code)
         }

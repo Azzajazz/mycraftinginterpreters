@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b32:test/variable/use_nil_as_var.lox
+lend

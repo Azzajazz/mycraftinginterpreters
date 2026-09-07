@@ -1,0 +1,7 @@
+#stderr
+b81:test/variable/use_nil_as_var.lox(2:5) Error: Expected Identifier, but got 'nil'.
+
+#stdout
+b0:
+#exit_code
+i:1
