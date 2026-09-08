@@ -54,6 +54,8 @@ Ast :: struct {
 Ast_Scope :: struct {
     using ast: Ast,
 
+    parent: ^Ast_Scope,
+    // :DynamicArrayInArena
     children: [dynamic]^Ast,
 }
 
@@ -277,11 +279,18 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
 Parser :: struct {
     using lexer: ^Lexer,
+
+    // :DynamicArrayInArena
+    // @Memory @Cleanup: We really don't want this in an arena allocator, since those types
+    // of allocators don't work well with resizes. We should probably have a separate GPA
+    // for dynamic arrays such as this.
+    scopes: [dynamic]^Ast_Scope,
 }
 
 parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     // @Cleanup: What scope?
     global_scope := new_ast_node(Ast_Scope, parser.file_name, 0, 0, 0, 0)
+    append(&parser.scopes, global_scope)
 
     statement := parse_statement_or_scope(parser)
     for statement != nil {
@@ -289,6 +298,7 @@ parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
         statement = parse_statement_or_scope(parser)
     }
 
+    pop(&parser.scopes)
     return global_scope
 }
 
@@ -310,6 +320,8 @@ parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
         lex_token(parser.lexer) // Consume the left brace.
         // @Cleanup: What scope?
         scope := new_ast_node(Ast_Scope, parser.file_name, 0, 0, 0, 0)
+        scope.parent = parser.scopes[len(parser.scopes) - 1]
+        append(&parser.scopes, scope)
 
         token := peek_token(parser.lexer)
         for token.type != .RightBrace {
@@ -320,6 +332,7 @@ parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
 
         lex_token(parser.lexer) // Consume the right brace.
 
+        pop(&parser.scopes)
         return scope
     }
 
