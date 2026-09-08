@@ -20,8 +20,14 @@ Value :: struct {
     },
 }
 
+Variable_Locator :: struct {
+    scope: ^Ast_Scope,
+    name: string,
+}
+
 Interp :: struct {
-    variables: map[string]Value,
+    variables: map[Variable_Locator]Value,
+    scope: ^Ast_Scope,
 }
 
 report_error :: proc(ast: Ast, format: string, args: ..any) {
@@ -34,10 +40,13 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     #partial switch ast.type {
     case .Scope:
         // @Incomplete: Scoping for variables.
-        scope := cast(^Ast_Scope)ast
-        for child in scope.children {
+        interp.scope = cast(^Ast_Scope)ast
+
+        for child in interp.scope.children {
             evaluate(interp, child)
         }
+
+        interp.scope = interp.scope.parent
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
@@ -56,7 +65,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     case .VarDefinition:
         ast_var_def := cast(^Ast_Var_Definition)ast
         value := evaluate_expression(interp, ast_var_def.value)
-        interp.variables[ast_var_def.name] = value
+        interp.variables[{interp.scope, ast_var_def.name}] = value
 
     case:
         if is_expression(ast) {
@@ -215,7 +224,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
         case .Var:
             ast_var := cast(^Ast_Var)expr
-            value, value_found := interp.variables[ast_var.name]
+            value, value_found := interp.variables[{interp.scope, ast_var.name}]
             
             if !value_found {
                 report_error(expr, "Variable %v was used, but it hasn't been defined.", ast_var.name)

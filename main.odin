@@ -65,16 +65,12 @@ main :: proc() {
         } else {
             global_scope := parse_all(&parser)
             if options.ast_dump {
-                for ast in global_scope.children {
-                    dump_ast(ast)
-                }
+                dump_ast(global_scope)
             }
 
             if !options.parse_only {
                 interp := Interp{}
-                for ast in global_scope.children {
-                    evaluate(&interp, ast)
-                }
+                evaluate(&interp, global_scope)
             }
         }
 
