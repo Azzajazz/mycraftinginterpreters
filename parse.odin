@@ -37,6 +37,7 @@ Ast_Type :: enum {
     GreaterEqual,
 
     Var,
+    Scope,
 }
 
 Ast :: struct {
@@ -48,6 +49,12 @@ Ast :: struct {
 
     line_end: int,
     char_end: int,
+}
+
+Ast_Scope :: struct {
+    using ast: Ast,
+
+    children: [dynamic]^Ast,
 }
 
 Ast_Statement :: struct {
@@ -125,6 +132,7 @@ Ast_Var :: struct {
 }
 
 ast_types := map[typeid]Ast_Type {
+    Ast_Scope = .Scope,
     Ast_Print = .Print,
     Ast_Var_Definition = .VarDefinition,
     Ast_Number = .Number,
@@ -175,6 +183,18 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     enum_field, _ := reflect.enum_name_from_value(ast.type)
     fmt.printfln("%v(", enum_field)
     switch ast.type {
+    case .Scope:
+        scope := cast(^Ast_Scope)ast
+        dump_indent(indent)
+        fmt.printfln("  children = [")
+
+        for child in scope.children {
+            dump_ast(child, indent + 1)
+        }
+
+        dump_indent(indent)
+        fmt.println("  ]")
+
     case .Print:
         print := cast(^Ast_Print)ast
 
@@ -258,16 +278,17 @@ Parser :: struct {
     using lexer: ^Lexer,
 }
 
-parse_all :: proc(parser: ^Parser) -> []^Ast {
-    program: [dynamic]^Ast
+parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
+    // @TODO: What should the lexical scope be here?
+    global_scope := new_ast_node(Ast_Scope, parser.file_name, 0, 0, 0, 0)
 
     statement := parse_statement(parser)
     for statement != nil {
-        append(&program, statement)
+        append(&global_scope.children, statement)
         statement = parse_statement(parser)
     }
 
-    return program[:]
+    return global_scope
 }
 
 parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {

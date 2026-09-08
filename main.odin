@@ -63,16 +63,16 @@ main :: proc() {
                 fmt.println(value.value.number)
             }
         } else {
-            program := parse_all(&parser)
+            global_scope := parse_all(&parser)
             if options.ast_dump {
-                for ast in program {
+                for ast in global_scope.children {
                     dump_ast(ast)
                 }
             }
 
             if !options.parse_only {
                 interp := Interp{}
-                for ast in program {
+                for ast in global_scope.children {
                     evaluate(&interp, ast)
                 }
             }
