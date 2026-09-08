@@ -186,10 +186,11 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     case .Scope:
         scope := cast(^Ast_Scope)ast
         dump_indent(indent)
-        fmt.printfln("  children = [")
+        fmt.println("  children = [")
 
         for child in scope.children {
-            dump_ast(child, indent + 1)
+            dump_indent(indent + 2)
+            dump_ast(child, indent + 2)
         }
 
         dump_indent(indent)
@@ -282,25 +283,44 @@ parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     // @TODO: What should the lexical scope be here?
     global_scope := new_ast_node(Ast_Scope, parser.file_name, 0, 0, 0, 0)
 
-    statement := parse_statement(parser)
+    statement := parse_statement_or_scope(parser)
     for statement != nil {
         append(&global_scope.children, statement)
-        statement = parse_statement(parser)
+        statement = parse_statement_or_scope(parser)
     }
 
     return global_scope
 }
 
-parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
+parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
     line_start := parser.line
     char_start := parser.char
 
-    stmt: ^Ast_Statement
+    ast: ^Ast
 
     token := peek_token(parser.lexer)
 
     if token.type == .Eof {
         return nil
+    }
+
+    if token.type == .LeftBrace {
+        // This is a scope.
+
+        lex_token(parser.lexer) // Consume the left brace.
+        // @Cleanup: What scope?
+        scope := new_ast_node(Ast_Scope, parser.file_name, 0, 0, 0, 0)
+
+        token := peek_token(parser.lexer)
+        for token.type != .RightBrace {
+            statement := parse_statement_or_scope(parser)
+            append(&scope.children, statement)
+            token = peek_token(parser.lexer)
+        }
+
+        lex_token(parser.lexer) // Consume the right brace.
+
+        return scope
     }
 
     #partial switch token.type {
@@ -311,7 +331,7 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             print := new_ast_node(Ast_Print, parser.file_name, line_start, char_start, parser.line, parser.char)
             print.expr = expr
 
-            stmt = cast(^Ast_Statement)print
+            ast = cast(^Ast)print
 
         case .Var:
             lex_token(parser.lexer) // Consume the 'var' keyword.
@@ -330,14 +350,14 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             var_def.name = name.code
             var_def.value = value
 
-            stmt = cast(^Ast_Statement)var_def
+            ast = cast(^Ast)var_def
 
         case:
-            stmt = cast(^Ast_Statement)parse_expression(parser)
+            ast = cast(^Ast)parse_expression(parser)
     }
 
     expect_token(parser.lexer, .Semicolon, ";")
-    return stmt
+    return ast
 }
 
 MIN_BINDING_POWER :: 5 // @Volatile: Must be updated with binding_powers.
