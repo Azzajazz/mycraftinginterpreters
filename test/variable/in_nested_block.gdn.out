@@ -1,0 +1,7 @@
+#exit_code
+i:0
+#stdout
+b6:outer
+
+#stderr
+b0:

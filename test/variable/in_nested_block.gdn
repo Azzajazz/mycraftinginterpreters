@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b33:test/variable/in_nested_block.lox
+lend

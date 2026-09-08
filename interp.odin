@@ -224,7 +224,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
         case .Var:
             ast_var := cast(^Ast_Var)expr
-            value, value_found := interp.variables[{interp.scope, ast_var.name}]
+            value, value_found := resolve_variable_value(interp, ast_var.name)
             
             if !value_found {
                 report_error(expr, "Variable %v was used, but it hasn't been defined.", ast_var.name)
@@ -236,4 +236,15 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
     }
 
     unreachable()
+}
+
+resolve_variable_value :: proc(interp: ^Interp, name: string) -> (value: Value, found: bool) {
+    scope := interp.scope
+
+    for !found && scope != nil {
+        value, found = interp.variables[{scope, name}]
+        scope = scope.parent
+    }
+
+    return value, found
 }
