@@ -32,31 +32,38 @@ report_error :: proc(ast: Ast, format: string, args: ..any) {
 
 evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     #partial switch ast.type {
-        case .Print:
-            ast_print := cast(^Ast_Print)ast
-            value := evaluate_expression(interp, ast_print.expr)
-            switch value.type {
-                case .Number:
-                    fmt.println(value.value.number)
-                case .String:
-                    fmt.println(value.value.str)
-                case .Bool:
-                    fmt.println(value.value.boolean)
-                case .Nil:
-                    fmt.println("nil")
-            }
+    case .Scope:
+        // @Incomplete: Scoping for variables.
+        scope := cast(^Ast_Scope)ast
+        for child in scope.children {
+            evaluate(interp, child)
+        }
+    
+    case .Print:
+        ast_print := cast(^Ast_Print)ast
+        value := evaluate_expression(interp, ast_print.expr)
+        switch value.type {
+            case .Number:
+                fmt.println(value.value.number)
+            case .String:
+                fmt.println(value.value.str)
+            case .Bool:
+                fmt.println(value.value.boolean)
+            case .Nil:
+                fmt.println("nil")
+        }
 
-        case .VarDefinition:
-            ast_var_def := cast(^Ast_Var_Definition)ast
-            value := evaluate_expression(interp, ast_var_def.value)
-            interp.variables[ast_var_def.name] = value
+    case .VarDefinition:
+        ast_var_def := cast(^Ast_Var_Definition)ast
+        value := evaluate_expression(interp, ast_var_def.value)
+        interp.variables[ast_var_def.name] = value
 
-        case:
-            if is_expression(ast) {
-                evaluate_expression(interp, cast(^Ast_Expression)ast)
-            } else {
-                report_internal_error("Could not evaluate AST of type %v!", ast.type)
-            }
+    case:
+        if is_expression(ast) {
+            evaluate_expression(interp, cast(^Ast_Expression)ast)
+        } else {
+            report_internal_error("Could not evaluate AST of type %v!", ast.type)
+        }
     }
 }
 

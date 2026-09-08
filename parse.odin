@@ -280,7 +280,7 @@ Parser :: struct {
 }
 
 parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
-    // @TODO: What should the lexical scope be here?
+    // @Cleanup: What scope?
     global_scope := new_ast_node(Ast_Scope, parser.file_name, 0, 0, 0, 0)
 
     statement := parse_statement_or_scope(parser)
