@@ -1,0 +1,5 @@
+This is just a list to write down stuff to do as I come across it.
+
+
+
+- Better error messages for invalid variable names (e.g. for test/variable/use_false_as_var.lox)
