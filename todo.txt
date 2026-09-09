@@ -12,3 +12,5 @@ This is just a list to write down stuff to do as I come across it.
         // @Cleanup: What scope?
 
 - More compact AST printing.
+
+- Cleaning up scoped variable maps.

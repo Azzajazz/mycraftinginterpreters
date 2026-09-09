@@ -20,14 +20,8 @@ Value :: struct {
     },
 }
 
-Variable_Locator :: struct {
-    scope: ^Ast_Scope,
-    name: string,
-}
-
 Interp :: struct {
-    variables: map[Variable_Locator]Value,
-    scope: ^Ast_Scope,
+    variables: [dynamic]map[string]Value,
 }
 
 report_error :: proc(ast: Ast, format: string, args: ..any) {
@@ -39,14 +33,16 @@ report_error :: proc(ast: Ast, format: string, args: ..any) {
 evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     #partial switch ast.type {
     case .Scope:
-        // @Incomplete: Scoping for variables.
-        interp.scope = cast(^Ast_Scope)ast
+        scope := cast(^Ast_Scope)ast
 
-        for child in interp.scope.children {
+        append(&interp.variables, nil)
+
+        for child in scope.children {
             evaluate(interp, child)
         }
 
-        interp.scope = interp.scope.parent
+        var_map := pop(&interp.variables)
+        delete(var_map)
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
@@ -65,7 +61,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     case .VarDefinition:
         ast_var_def := cast(^Ast_Var_Definition)ast
         value := evaluate_expression(interp, ast_var_def.value)
-        interp.variables[{interp.scope, ast_var_def.name}] = value
+        interp.variables[len(interp.variables) - 1][ast_var_def.name] = value
 
     case:
         if is_expression(ast) {
@@ -239,12 +235,13 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 }
 
 resolve_variable_value :: proc(interp: ^Interp, name: string) -> (value: Value, found: bool) {
-    scope := interp.scope
+    #reverse for variables in interp.variables {
+        value, found = variables[name]
 
-    for !found && scope != nil {
-        value, found = interp.variables[{scope, name}]
-        scope = scope.parent
+        if found {
+            return value, found
+        }
     }
 
-    return value, found
+    return Value{}, false
 }
