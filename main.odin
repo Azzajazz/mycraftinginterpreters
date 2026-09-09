@@ -39,43 +39,53 @@ main :: proc() {
             dump_token(token)
         }
     } else {
-        arena: vmem.Arena
-        err := vmem.arena_init_growing(&arena)
-        assert(err == nil)
-        context.allocator = vmem.arena_allocator(&arena)
-
         track: mem.Tracking_Allocator
         mem.tracking_allocator_init(&track, context.allocator)
         defer mem.tracking_allocator_destroy(&track)
         context.allocator = mem.tracking_allocator(&track)
 
-        parser := Parser{lexer = &lexer}
-        if options.expr_mode {
-            expr := parse_expression(&parser)
+        arena: vmem.Arena
+        err := vmem.arena_init_growing(&arena)
+        assert(err == nil)
+        ast_allocator := vmem.arena_allocator(&arena)
 
-            if options.ast_dump {
-                dump_ast(expr)
+        {
+            parser := Parser{lexer = &lexer, ast_allocator = ast_allocator}
+            defer delete_parser(parser)
+
+            if options.expr_mode {
+                expr := parse_expression(&parser)
+
+                if options.ast_dump {
+                    dump_ast(expr)
+                }
+
+                if !options.parse_only {
+                    interp := Interp{}
+                    defer delete_interp(interp)
+
+                    value := evaluate_expression(&interp, expr)
+                    fmt.println(value.value.number)
+                }
+            } else {
+                global_scope := parse_all(&parser)
+
+                if options.ast_dump {
+                    dump_ast(global_scope)
+                }
+
+                if !options.parse_only {
+                    interp := Interp{}
+                    defer delete_interp(interp)
+
+                    evaluate(&interp, global_scope)
+                }
             }
 
-            if !options.parse_only {
-                interp := Interp{}
-                value := evaluate_expression(&interp, expr)
-                fmt.println(value.value.number)
-            }
-        } else {
-            global_scope := parse_all(&parser)
-            if options.ast_dump {
-                dump_ast(global_scope)
-            }
-
-            if !options.parse_only {
-                interp := Interp{}
-                evaluate(&interp, global_scope)
-            }
+            free_all(ast_allocator)
         }
 
-        free_all(context.allocator)
-
+        // /*nocommit Make sure all dynamic arrays, etc are freed.
         for _, leak in track.allocation_map {
             fmt.printfln("%v leaked %m", leak.location, leak.size)
         }

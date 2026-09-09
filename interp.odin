@@ -21,7 +21,12 @@ Value :: struct {
 }
 
 Interp :: struct {
+    // @Memory @Cleanup :DynamicArrayInArena
     variables: [dynamic]map[string]Value,
+}
+
+delete_interp :: proc(interp: Interp) {
+    delete(interp.variables)
 }
 
 report_error :: proc(ast: Ast, format: string, args: ..any) {
