@@ -57,7 +57,6 @@ Token :: struct {
     code: string,
 
     value: struct #raw_union {
-        number: f32,
         str: string,
     }
 }
@@ -184,7 +183,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
 
         // If we get here, then this is a string literal, a number, an identifier or a keyword.
         if c == '"' {
-            // @Robustness: We should probaly copy the string value out of the code here.
+            // @Robustness: We should probably copy the string value out of the code here.
             string_start_index := lexer.code_index
             advance_lexer(lexer, 1)
             for lexer.code_index < len(lexer.code) && lexer.code[lexer.code_index] != '"' {
@@ -204,7 +203,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             assert(string_start_index <= lexer.code_index - 2)
             token.type = .String
             token.code = lexer.code[string_start_index:lexer.code_index]
-            token.value.str = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1])
+            token.value.str = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1]) // @Leak
         } else if '0' <= c && c <= '9' {
             number_start_index := lexer.code_index
 
@@ -225,8 +224,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             token.type = .Number
             token.code = code_repr
             parse_ok: bool
-            token.value.number, parse_ok = strconv.parse_f32(code_repr)
-            assert(parse_ok)
+            token.value.str = strings.clone(code_repr) // @Leak
         } else if ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_' {
             lex_identifier_or_keyword(lexer, &token)
         } else {
@@ -388,7 +386,7 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     case:
         token.type = .Identifier
         token.code = identifier
-        token.value.str = strings.clone(identifier)
+        token.value.str = strings.clone(identifier) // @Leak
     }
 }
 
@@ -398,7 +396,9 @@ dump_token :: proc(token: Token) {
     fmt.print(type_str)
     fmt.printf(" %v", token.code)
     if token.type == .Number {
-        fmt.printfln(" %v", token.value.number)
+        number, number_ok := strconv.parse_f32(token.value.str)
+        assert(number_ok)
+        fmt.printfln(" %v", number)
     } else if token.type == .String {
         fmt.printfln(" %v", token.value.str)
     } else {

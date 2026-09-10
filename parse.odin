@@ -7,6 +7,7 @@ import "base:runtime"
 import "core:fmt"
 import "core:os"
 import "core:reflect"
+import "core:strconv"
 
 // @TODO: Adding new AST nodes is error-prone and requires:
 //   - adding an entry to Ast_Type
@@ -483,7 +484,9 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         case .Number:
             ast := new_ast_node(Ast_Number, line_start, char_start, parser)
 
-            ast.value = token.value.number
+            number, number_ok := strconv.parse_f32(token.value.str)
+            assert(number_ok)
+            ast.value = number
             expr = cast(^Ast_Expression)ast
 
         case .String:
