@@ -45,7 +45,6 @@ main :: proc() {
         context.allocator = mem.tracking_allocator(&track)
 
         defer {
-            // /*nocommit Make sure all dynamic arrays, etc are freed.
             for _, leak in track.allocation_map {
                 fmt.printfln("%v leaked %m", leak.location, leak.size)
             }
