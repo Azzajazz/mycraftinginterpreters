@@ -1,3 +1,7 @@
+#exit_code
+i:0
+#stderr
+b0:
 #stdout
 b39:14
 8
@@ -13,7 +17,3 @@ true
 0
 4
 
-#exit_code
-i:0
-#stderr
-b0:

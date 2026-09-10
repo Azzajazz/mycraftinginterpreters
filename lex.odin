@@ -400,11 +400,15 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     }
 }
 
-dump_token :: proc(token: Token) {
+dump_token :: proc(lexer: ^Lexer, token: Token) {
     type_str, type_str_ok := reflect.enum_name_from_value(token.type)
     assert(type_str_ok)
     fmt.print(type_str)
-    fmt.printf(" %v", token.code)
+
+    length := get_token_length(lexer, token)
+    token_code := lexer.code[token.code_index:token.code_index + length]
+    fmt.printf(" %v", token_code)
+
     if token.type == .Number {
         number, number_ok := strconv.parse_f32(token.value)
         assert(number_ok)

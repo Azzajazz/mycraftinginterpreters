@@ -1,3 +1,7 @@
+#exit_code
+i:0
+#stderr
+b0:
 #stdout
 b229:And and null
 Class class null
@@ -16,7 +20,3 @@ Var var null
 While while null
 Eof  null
 
-#exit_code
-i:0
-#stderr
-b0:

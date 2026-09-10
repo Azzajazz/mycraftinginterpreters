@@ -39,7 +39,7 @@ main :: proc() {
         token: Token
         for token.type != .Eof {
             token = lex_token(&lexer)
-            dump_token(token)
+            dump_token(&lexer, token)
         }
     } else {
         track: mem.Tracking_Allocator

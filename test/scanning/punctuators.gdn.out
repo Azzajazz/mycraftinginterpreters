@@ -1,10 +1,14 @@
+#exit_code
+i:0
+#stderr
+b0:
 #stdout
-b291:LeftParen ( null
+b292:LeftParen ( null
 RightParen ) null
 LeftBrace { null
 RightBrace } null
 Semicolon ; null
-Comma  null
+Comma , null
 Plus + null
 Minus - null
 Star * null
@@ -19,7 +23,3 @@ Slash / null
 Dot . null
 Eof  null
 
-#exit_code
-i:0
-#stderr
-b0:

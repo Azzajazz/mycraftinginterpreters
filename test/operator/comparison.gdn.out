@@ -1,3 +1,7 @@
+#exit_code
+i:0
+#stderr
+b0:
 #stdout
 b110:true
 false
@@ -20,7 +24,3 @@ true
 true
 true
 
-#exit_code
-i:0
-#stderr
-b0:
