@@ -25,11 +25,15 @@ Interp :: struct {
     variables: [dynamic]map[string]Value,
 }
 
+is_in_global_scope :: proc(interp: ^Interp) -> bool {
+    return len(interp.variables) == 1
+}
+
 delete_interp :: proc(interp: Interp) {
     delete(interp.variables)
 }
 
-report_error :: proc(ast: Ast, format: string, args: ..any) {
+report_error :: proc(ast: ^Ast, format: string, args: ..any) {
     fmt.eprintf("%v(%v:%v) Error: ", ast.file_name, ast.line_start + 1, ast.char_start + 1)
     fmt.eprintfln(format, ..args)
     os.exit(1)
@@ -66,7 +70,13 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     case .VarDefinition:
         ast_var_def := cast(^Ast_Var_Definition)ast
         value := evaluate_expression(interp, ast_var_def.value)
-        interp.variables[len(interp.variables) - 1][ast_var_def.name] = value
+        scoped_variables := &interp.variables[len(interp.variables) - 1]
+
+        if !is_in_global_scope(interp) && ast_var_def.name in scoped_variables {
+            report_error(ast, "Cannot redefine a variable in a scope that is not the global scope.")
+        } else {
+            scoped_variables[ast_var_def.name] = value
+        }
 
     case:
         if is_expression(ast) {
