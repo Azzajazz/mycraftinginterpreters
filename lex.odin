@@ -54,7 +54,6 @@ Token :: struct {
     code_index: int,
 
     type: Token_Type,
-    code: string,
 
     value: string,
 }
@@ -90,6 +89,11 @@ get_token_length :: proc(lexer: ^Lexer, token: Token) -> int {
     end := lexer_copy.code_index
 
     return end - start
+}
+
+get_token_code :: proc(lexer: ^Lexer, token: Token) -> string {
+    length := get_token_length(lexer, token)
+    return lexer.code[token.code_index:token.code_index + length]
 }
 
 report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..any) {
@@ -128,12 +132,13 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
 
 expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -> Token {
     token := lex_token(lexer)
+    token_code := get_token_code(lexer, token)
 
     if token.type != token_type {
         if code == "" {
-            report_lex_error(lexer, token, "Expected %v, but got '%v'.", token_type, token.code)
+            report_lex_error(lexer, token, "Expected %v, but got '%v'.", token_type, token_code)
         } else {
-            report_lex_error(lexer, token, "Expected '%v', but got '%v'.", code, token.code)
+            report_lex_error(lexer, token, "Expected '%v', but got '%v'.", code, token_code)
         }
     }
 
@@ -212,7 +217,6 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
 
             assert(string_start_index <= lexer.code_index - 2)
             token.type = .String
-            token.code = lexer.code[string_start_index:lexer.code_index]
             token.value = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1]) // @Leak
         } else if '0' <= c && c <= '9' {
             number_start_index := lexer.code_index
@@ -232,7 +236,6 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             code_repr := lexer.code[number_start_index:lexer.code_index]
 
             token.type = .Number
-            token.code = code_repr
             parse_ok: bool
             token.value = strings.clone(code_repr) // @Leak
         } else if ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_' {
@@ -241,87 +244,68 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             switch c {
             case '(':
                 token.type = .LeftParen
-                token.code = "("
                 advance_lexer(lexer, 1)
             case ')':
                 token.type = .RightParen
-                token.code = ")"
                 advance_lexer(lexer, 1)
             case '{':
                 token.type = .LeftBrace
-                token.code = "{"
                 advance_lexer(lexer, 1)
             case '}':
                 token.type = .RightBrace
-                token.code = "}"
                 advance_lexer(lexer, 1)
             case ';':
                 token.type = .Semicolon
-                token.code = ";"
                 advance_lexer(lexer, 1)
             case ',':
                 token.type = .Comma
-                token.code = ""
                 advance_lexer(lexer, 1)
             case '+':
                 token.type = .Plus
-                token.code = "+"
                 advance_lexer(lexer, 1)
             case '-':
                 token.type = .Minus
-                token.code = "-"
                 advance_lexer(lexer, 1)
             case '*':
                 token.type = .Star
-                token.code = "*"
                 advance_lexer(lexer, 1)
             case '!':
                 if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
                     token.type = .BangEqual
-                    token.code = "!="
                     advance_lexer(lexer, 2)
                 } else {
                     token.type = .Bang
-                    token.code = "!"
                     advance_lexer(lexer, 1)
                 }
             case '=':
                 if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
                     token.type = .EqualEqual
-                    token.code = "=="
                     advance_lexer(lexer, 2)
                 } else {
                     token.type = .Equal
-                    token.code = "="
                     advance_lexer(lexer, 1)
                 }
             case '<':
                 if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
                     token.type = .LessEqual
-                    token.code = "<="
                     advance_lexer(lexer, 2)
                 } else {
                     token.type = .Less
-                    token.code = "<"
                     advance_lexer(lexer, 1)
                 }
             case '>':
                 if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
                     token.type = .GreaterEqual
-                    token.code = ">="
                     advance_lexer(lexer, 2)
                 } else {
                     token.type = .Greater
-                    token.code = ">"
                     advance_lexer(lexer, 1)
                 }
             case '/':
                 token.type = .Slash
-                token.code = "/"
                 advance_lexer(lexer, 1)
             case '.':
                 token.type = .Dot
-                token.code = "."
                 advance_lexer(lexer, 1)
             case:
                 report_lex_error(lexer, token, "Unexpected character '%v'.", cast(rune)c)
@@ -347,55 +331,38 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     switch {
     case identifier == "and": 
         token.type = .And
-        token.code = "and"
     case identifier == "class": 
         token.type = .Class
-        token.code = "class"
     case identifier == "else": 
         token.type = .Else
-        token.code = "else"
     case identifier == "false": 
         token.type = .False
-        token.code = "false"
     case identifier == "for": 
         token.type = .For
-        token.code = "for"
     case identifier == "fun": 
         token.type = .Fun
-        token.code = "fun"
     case identifier == "if": 
         token.type = .If
-        token.code = "if"
     case identifier == "nil": 
         token.type = .Nil
-        token.code = "nil"
     case identifier == "or": 
         token.type = .Or
-        token.code = "or"
     case identifier == "print": 
         token.type = .Print
-        token.code = "print"
     case identifier == "return": 
         token.type = .Return
-        token.code = "return"
     case identifier == "super": 
         token.type = .Super
-        token.code = "super"
     case identifier == "this": 
         token.type = .This
-        token.code = "this"
     case identifier == "true": 
         token.type = .True
-        token.code = "true"
     case identifier == "var": 
         token.type = .Var
-        token.code = "var"
     case identifier == "while":
         token.type = .While
-        token.code = "while"
     case:
         token.type = .Identifier
-        token.code = identifier
         token.value = strings.clone(identifier) // @Leak
     }
 }
@@ -405,8 +372,7 @@ dump_token :: proc(lexer: ^Lexer, token: Token) {
     assert(type_str_ok)
     fmt.print(type_str)
 
-    length := get_token_length(lexer, token)
-    token_code := lexer.code[token.code_index:token.code_index + length]
+    token_code := get_token_code(lexer, token)
     fmt.printf(" %v", token_code)
 
     if token.type == .Number {
