@@ -379,7 +379,7 @@ parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
             }
 
             var_def := new_ast_node(Ast_Var_Definition, line_start, char_start, parser)
-            var_def.name = name.code
+            var_def.name = name.value
             var_def.value = value
 
             ast = cast(^Ast)var_def

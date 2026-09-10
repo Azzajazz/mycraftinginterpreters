@@ -80,6 +80,18 @@ get_token_line_and_char :: proc(lexer: ^Lexer, token: Token) -> (line: int, char
     return line, char
 }
 
+// @Performance: Some tokens have predefined lengths (e.g. keywords).
+get_token_length :: proc(lexer: ^Lexer, token: Token) -> int {
+    lexer_copy := lexer^
+    lexer_copy.code_index = token.code_index
+
+    start := lexer_copy.code_index
+    lex_token(&lexer_copy)
+    end := lexer_copy.code_index
+
+    return end - start
+}
+
 report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..any) {
     line_start_index := token.code_index
     for line_start_index > 0 && lexer.code[line_start_index - 1] != '\n' {
@@ -93,7 +105,7 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
 
     line := lexer.code[line_start_index:line_end_index]
     char := token.code_index - line_start_index
-    size := len(token.code)
+    size := get_token_length(lexer, token)
 
     line_number, char_number := get_token_line_and_char(lexer, token)
 
