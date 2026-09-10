@@ -25,12 +25,12 @@ Interp :: struct {
     variables: [dynamic]map[string]Value,
 }
 
-is_in_global_scope :: proc(interp: ^Interp) -> bool {
-    return len(interp.variables) == 1
-}
-
 delete_interp :: proc(interp: Interp) {
     delete(interp.variables)
+}
+
+is_in_global_scope :: proc(interp: ^Interp) -> bool {
+    return len(interp.variables) == 1
 }
 
 report_error :: proc(ast: ^Ast, format: string, args: ..any) {

@@ -51,11 +51,14 @@ Token_Type :: enum {
 }
 
 Token :: struct {
+    // @Cleanup: Remove these.
     line_start: int,
     char_start: int,
-    // @Compactness: Maybe these are superfluous?
     line_end: int,
     char_end: int,
+    // @Cleanup
+
+    code_index: int,
 
     type: Token_Type,
     code: string,
@@ -75,8 +78,36 @@ Lexer :: struct {
 }
 
 report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..any) {
+    line_start_index := token.code_index
+    for line_start_index > 0 && lexer.code[line_start_index - 1] != '\n' {
+        line_start_index -= 1
+    }
+
+    line_end_index := token.code_index
+    for line_end_index < len(lexer.code) && lexer.code[line_end_index] != '\n' {
+        line_end_index += 1
+    }
+
+    line := lexer.code[line_start_index:line_end_index]
+    char := token.code_index - line_start_index
+    // @Cleanup: We either know the size in advance or we can calculate it by re-lexing the token.
+    // This would allow us to remove char_end and char_start from Token.
+    size := token.char_end - token.char_start
+
     fmt.eprintf("%v(%v:%v) Error: ", lexer.file_name, token.line_start + 1, token.char_start + 1)
     fmt.eprintfln(format, ..args)
+
+    fmt.printfln("    %v", line)
+    fmt.print("    ")
+    for _ in 0..<char {
+        fmt.print(" ")
+    }
+    for _ in 0..<size {
+        fmt.print("^")
+    }
+    fmt.println()
+    fmt.println()
+
     had_error = true
 }
 
@@ -137,6 +168,8 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             }
         }
     }
+
+    token.code_index = lexer.code_index
 
     token.line_start = lexer.line
     token.char_start = lexer.char
