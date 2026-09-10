@@ -2,8 +2,6 @@ This is just a list to write down stuff to do as I come across it.
 
 
 - Clean up:
-    - Remove code field from Token
-    - Do not parse to numbers/strings in lexer.
     - Linear allocator for strings.
     - Simplify AST stuff.
 
@@ -21,6 +19,3 @@ This is just a list to write down stuff to do as I come across it.
 - More compact AST printing.
 
 - report_lex_error for EOF.
-
-- Clean up leaks
-    // @Leak

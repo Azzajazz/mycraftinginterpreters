@@ -51,10 +51,8 @@ Token_Type :: enum {
 }
 
 Token :: struct {
-    code_index: int,
-
     type: Token_Type,
-
+    code_index: int,
     value: string,
 }
 
@@ -217,7 +215,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
 
             assert(string_start_index <= lexer.code_index - 2)
             token.type = .String
-            token.value = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1]) // @Leak
+            token.value = lexer.code[string_start_index + 1:lexer.code_index - 1]
         } else if '0' <= c && c <= '9' {
             number_start_index := lexer.code_index
 
@@ -233,11 +231,8 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
                 }
             }
 
-            code_repr := lexer.code[number_start_index:lexer.code_index]
-
             token.type = .Number
-            parse_ok: bool
-            token.value = strings.clone(code_repr) // @Leak
+            token.value = lexer.code[number_start_index:lexer.code_index]
         } else if ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_' {
             lex_identifier_or_keyword(lexer, &token)
         } else {
@@ -363,7 +358,7 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
         token.type = .While
     case:
         token.type = .Identifier
-        token.value = strings.clone(identifier) // @Leak
+        token.value = identifier
     }
 }
 
