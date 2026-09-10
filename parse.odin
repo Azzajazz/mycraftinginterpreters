@@ -172,6 +172,16 @@ new_ast_node :: proc($T: typeid, line_start, char_start: int, parser: ^Parser) -
     ast.line_end = parser.line
     ast.char_end = parser.char
 
+    
+    // @Memory @Cleanup :DynamicArrayInArena
+    // I don't really want to append using a linear allocator,
+    // but it's difficult to clean up this memory otherwise. At some point we may
+    // come up with a better memory allocation strategy, but for now this is the best
+    // we can do.
+    when T == Ast_Scope {
+        ast.children.allocator = parser.ast_allocator
+    }
+
     return ast
 }
 
