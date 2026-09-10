@@ -51,11 +51,6 @@ Token_Type :: enum {
 }
 
 Token :: struct {
-    // @Cleanup: Remove these.
-    line_start: int,
-    char_start: int,
-    // @Cleanup
-
     code_index: int,
 
     type: Token_Type,
@@ -181,9 +176,6 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
     }
 
     token.code_index = lexer.code_index
-
-    token.line_start = lexer.line
-    token.char_start = lexer.char
 
     if lexer.code_index >= len(lexer.code) {
         token.type = .Eof
@@ -395,7 +387,8 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
         token.code = "while"
     case:
         token.type = .Identifier
-        token.code = strings.clone(identifier)
+        token.code = identifier
+        token.value.str = strings.clone(identifier)
     }
 }
 

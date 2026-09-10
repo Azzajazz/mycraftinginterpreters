@@ -298,8 +298,6 @@ Parser :: struct {
     ast_allocator: runtime.Allocator,
 
     scopes: [dynamic]^Ast_Scope,
-
-    had_error: bool,
 }
 
 // @Cleanup: I don't think we need parser.scopes if we have a parent on the Ast_Scopes...
@@ -510,7 +508,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         case .Identifier:
             // @Incomplete: Parse function calls.
             ast := new_ast_node(Ast_Var, line_start, char_start, parser)
-            ast.name = token.code
+            ast.name = token.value.str
             expr = cast(^Ast_Expression)ast
 
         case:
