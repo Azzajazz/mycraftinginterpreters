@@ -484,14 +484,14 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         case .Number:
             ast := new_ast_node(Ast_Number, line_start, char_start, parser)
 
-            number, number_ok := strconv.parse_f32(token.value.str)
+            number, number_ok := strconv.parse_f32(token.value)
             assert(number_ok)
             ast.value = number
             expr = cast(^Ast_Expression)ast
 
         case .String:
             ast := new_ast_node(Ast_String, line_start, char_start, parser)
-            ast.value = token.value.str
+            ast.value = token.value
             expr = cast(^Ast_Expression)ast
 
         case .True:
@@ -511,7 +511,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         case .Identifier:
             // @Incomplete: Parse function calls.
             ast := new_ast_node(Ast_Var, line_start, char_start, parser)
-            ast.name = token.value.str
+            ast.name = token.value
             expr = cast(^Ast_Expression)ast
 
         case:

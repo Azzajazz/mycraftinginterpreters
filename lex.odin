@@ -56,9 +56,7 @@ Token :: struct {
     type: Token_Type,
     code: string,
 
-    value: struct #raw_union {
-        str: string,
-    }
+    value: string,
 }
 
 Lexer :: struct {
@@ -203,7 +201,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             assert(string_start_index <= lexer.code_index - 2)
             token.type = .String
             token.code = lexer.code[string_start_index:lexer.code_index]
-            token.value.str = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1]) // @Leak
+            token.value = strings.clone(lexer.code[string_start_index + 1:lexer.code_index - 1]) // @Leak
         } else if '0' <= c && c <= '9' {
             number_start_index := lexer.code_index
 
@@ -224,7 +222,7 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             token.type = .Number
             token.code = code_repr
             parse_ok: bool
-            token.value.str = strings.clone(code_repr) // @Leak
+            token.value = strings.clone(code_repr) // @Leak
         } else if ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_' {
             lex_identifier_or_keyword(lexer, &token)
         } else {
@@ -386,7 +384,7 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     case:
         token.type = .Identifier
         token.code = identifier
-        token.value.str = strings.clone(identifier) // @Leak
+        token.value = strings.clone(identifier) // @Leak
     }
 }
 
@@ -396,11 +394,11 @@ dump_token :: proc(token: Token) {
     fmt.print(type_str)
     fmt.printf(" %v", token.code)
     if token.type == .Number {
-        number, number_ok := strconv.parse_f32(token.value.str)
+        number, number_ok := strconv.parse_f32(token.value)
         assert(number_ok)
         fmt.printfln(" %v", number)
     } else if token.type == .String {
-        fmt.printfln(" %v", token.value.str)
+        fmt.printfln(" %v", token.value)
     } else {
         fmt.println(" null")
     }
