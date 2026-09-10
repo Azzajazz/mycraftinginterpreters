@@ -54,7 +54,6 @@ Token :: struct {
     // @Cleanup: Remove these.
     line_start: int,
     char_start: int,
-    char_end: int,
     // @Cleanup
 
     code_index: int,
@@ -89,9 +88,7 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
 
     line := lexer.code[line_start_index:line_end_index]
     char := token.code_index - line_start_index
-    // @Cleanup: We either know the size in advance or we can calculate it by re-lexing the token.
-    // This would allow us to remove char_end and char_start from Token.
-    size := token.char_end - token.char_start
+    size := len(token.code)
 
     fmt.eprintf("%v(%v:%v) Error: ", lexer.file_name, token.line_start + 1, token.char_start + 1)
     fmt.eprintfln(format, ..args)
@@ -316,8 +313,6 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             }
         }
     }
-
-    token.char_end = lexer.char
 
     return token
 }
