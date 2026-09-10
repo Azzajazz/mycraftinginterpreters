@@ -77,7 +77,7 @@ Lexer :: struct {
 report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..any) {
     fmt.eprintf("%v(%v:%v) Error: ", lexer.file_name, token.line_start + 1, token.char_start + 1)
     fmt.eprintfln(format, ..args)
-    os.exit(1)
+    had_error = true
 }
 
 expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -> Token {

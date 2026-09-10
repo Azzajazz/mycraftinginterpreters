@@ -6,6 +6,9 @@ import "core:fmt"
 import "core:mem"
 import vmem "core:mem/virtual"
 
+@(private)
+had_error: bool
+
 report_internal_error :: proc(format: string, args: ..any) {
     fmt.eprint("Internal error: ")
     fmt.eprintfln(format, ..args)
@@ -60,30 +63,33 @@ main :: proc() {
 
         if options.expr_mode {
             expr := parse_expression(&parser)
+            if !had_error {
+                if options.ast_dump {
+                    dump_ast(expr)
+                }
 
-            if options.ast_dump {
-                dump_ast(expr)
-            }
+                if !options.parse_only {
+                    interp := Interp{}
+                    defer delete_interp(interp)
 
-            if !options.parse_only {
-                interp := Interp{}
-                defer delete_interp(interp)
-
-                value := evaluate_expression(&interp, expr)
-                fmt.println(value.value.number)
+                    value := evaluate_expression(&interp, expr)
+                    fmt.println(value.value.number)
+                }
             }
         } else {
             global_scope := parse_all(&parser)
+            if !had_error {
 
-            if options.ast_dump {
-                dump_ast(global_scope)
-            }
+                if options.ast_dump {
+                    dump_ast(global_scope)
+                }
 
-            if !options.parse_only {
-                interp := Interp{}
-                defer delete_interp(interp)
+                if !options.parse_only {
+                    interp := Interp{}
+                    defer delete_interp(interp)
 
-                evaluate(&interp, global_scope)
+                    evaluate(&interp, global_scope)
+                }
             }
         }
 
