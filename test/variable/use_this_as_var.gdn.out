@@ -1,7 +1,10 @@
-#exit_code
-i:1
 #stdout
 b0:
+#exit_code
+i:1
 #stderr
-b83:test/variable/use_this_as_var.lox(2:5) Error: Expected Identifier, but got 'this'.
+b121:test/variable/use_this_as_var.lox(2:5) Error: Expected Identifier, but got 'this'.
+    var this = "value";
+        ^^^^
+
 

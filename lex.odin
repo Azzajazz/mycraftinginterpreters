@@ -54,7 +54,6 @@ Token :: struct {
     // @Cleanup: Remove these.
     line_start: int,
     char_start: int,
-    line_end: int,
     char_end: int,
     // @Cleanup
 
@@ -97,16 +96,16 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
     fmt.eprintf("%v(%v:%v) Error: ", lexer.file_name, token.line_start + 1, token.char_start + 1)
     fmt.eprintfln(format, ..args)
 
-    fmt.printfln("    %v", line)
-    fmt.print("    ")
+    fmt.eprintfln("    %v", line)
+    fmt.eprint("    ")
     for _ in 0..<char {
-        fmt.print(" ")
+        fmt.eprint(" ")
     }
     for _ in 0..<size {
-        fmt.print("^")
+        fmt.eprint("^")
     }
-    fmt.println()
-    fmt.println()
+    fmt.eprintln()
+    fmt.eprintln()
 
     had_error = true
 }
@@ -318,7 +317,6 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
         }
     }
 
-    token.line_end = lexer.line
     token.char_end = lexer.char
 
     return token
