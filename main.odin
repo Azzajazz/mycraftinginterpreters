@@ -48,9 +48,11 @@ main :: proc() {
         context.allocator = mem.tracking_allocator(&track)
 
         defer {
+            /*
             for _, leak in track.allocation_map {
                 fmt.printfln("%v leaked %m", leak.location, leak.size)
             }
+            */
         }
 
         arena: vmem.Arena

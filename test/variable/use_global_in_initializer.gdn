@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b43:test/variable/use_global_in_initializer.lox
+lend

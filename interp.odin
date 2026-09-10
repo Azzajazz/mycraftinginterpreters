@@ -69,7 +69,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
 
     case .VarDefinition:
         ast_var_def := cast(^Ast_Var_Definition)ast
-        value := evaluate_expression(interp, ast_var_def.value)
+        value := evaluate_expression(interp, ast_var_def.value, ast_var_def.name)
         scoped_variables := &interp.variables[len(interp.variables) - 1]
 
         if !is_in_global_scope(interp) && ast_var_def.name in scoped_variables {
@@ -87,7 +87,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     }
 }
 
-evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
+evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_name := "") -> Value {
     assert(is_expression(expr))
     #partial switch expr.type {
         case .Number:
@@ -235,12 +235,16 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression) -> Value {
 
         case .Var:
             ast_var := cast(^Ast_Var)expr
-            value, value_found := resolve_variable_value(interp, ast_var.name)
-            
-            if !value_found {
-                report_error(expr, "Variable %v was used, but it hasn't been defined.", ast_var.name)
+            if !is_in_global_scope(interp) && ast_var.name == initialized_name {
+                report_error(expr, "Cannot use a local variable in its own initializer.")
+            } else {
+                value, value_found := resolve_variable_value(interp, ast_var.name)
+                
+                if !value_found {
+                    report_error(expr, "Variable %v was used, but it hasn't been defined.", ast_var.name)
+                }
+                return value
             }
-            return value
 
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)
