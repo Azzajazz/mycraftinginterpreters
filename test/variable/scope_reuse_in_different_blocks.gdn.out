@@ -1,10 +1,8 @@
 #stderr
 b0:
 #stdout
-b16:a
-a b
-a c
-a b d
+b13:first
+second
 
 #exit_code
 i:0

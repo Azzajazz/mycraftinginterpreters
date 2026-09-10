@@ -1,0 +1,7 @@
+#stdout
+b0:
+#exit_code
+i:1
+#stderr
+b69:ERROR: Could not open source file test/variable/redeclare_local.lox.
+

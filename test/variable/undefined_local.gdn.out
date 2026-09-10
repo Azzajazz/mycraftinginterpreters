@@ -1,0 +1,7 @@
+#exit_code
+i:1
+#stderr
+b67:ERROR: Could not open source file test/variable/undefined_local.l.
+
+#stdout
+b0:

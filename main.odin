@@ -79,7 +79,6 @@ main :: proc() {
         } else {
             global_scope := parse_all(&parser)
             if !had_error {
-
                 if options.ast_dump {
                     dump_ast(global_scope)
                 }
@@ -94,5 +93,9 @@ main :: proc() {
         }
 
         free_all(ast_allocator)
+    }
+
+    if had_error {
+        os.exit(1)
     }
 }

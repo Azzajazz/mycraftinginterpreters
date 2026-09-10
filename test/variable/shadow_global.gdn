@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b31:test/variable/shadow_global.lox
+lend

@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b49:test/variable/scope_reuse_in_different_blocks.lox
+lend
