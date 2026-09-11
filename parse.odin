@@ -47,11 +47,16 @@ Ast :: struct {
     type: Ast_Type,
 
     file_name: string,
+    // @Cleanup: Remove these.
     line_start: int,
     char_start: int,
 
     line_end: int,
     char_end: int,
+    // @Cleanup
+
+    start_code_index: int,
+    end_code_index: int,
 }
 
 Ast_Scope :: struct {
@@ -163,7 +168,7 @@ is_expression :: proc(ast: ^Ast) -> bool {
     return cast(int)ast.type >= expression_min
 }
 
-new_ast_node :: proc($T: typeid, line_start, char_start: int, parser: ^Parser) -> ^T {
+new_ast_node :: proc($T: typeid, start_code_index, end_code_index: int, line_start, char_start: int, parser: ^Parser) -> ^T {
     ast := new(T, parser.ast_allocator)
     ast.type = ast_types[T]
 
@@ -172,6 +177,9 @@ new_ast_node :: proc($T: typeid, line_start, char_start: int, parser: ^Parser) -
     ast.char_start = char_start
     ast.line_end = parser.line
     ast.char_end = parser.char
+
+    ast.start_code_index = start_code_index
+    ast.end_code_index = end_code_index
 
     
     // @Memory @Cleanup :DynamicArrayInArena
@@ -308,7 +316,7 @@ delete_parser :: proc(parser: Parser) {
 
 parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     // @Cleanup: What scope?
-    global_scope := new_ast_node(Ast_Scope, 0, 0, parser)
+    global_scope := new_ast_node(Ast_Scope, 0, 0, 0, 0, parser)
     append(&parser.scopes, global_scope)
 
     statement := parse_statement_or_scope(parser)
@@ -338,7 +346,7 @@ parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
 
         lex_token(parser.lexer) // Consume the left brace.
         // @Cleanup: What scope?
-        scope := new_ast_node(Ast_Scope, 0, 0, parser)
+        scope := new_ast_node(Ast_Scope, 0, 0, 0, 0, parser)
         scope.parent = parser.scopes[len(parser.scopes) - 1]
         append(&parser.scopes, scope)
 
@@ -360,7 +368,7 @@ parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
             lex_token(parser.lexer) // Consume the 'print' keyword.
             expr := parse_expression(parser)
 
-            print := new_ast_node(Ast_Print, line_start, char_start, parser)
+            print := new_ast_node(Ast_Print, token.code_index, expr.end_code_index, line_start, char_start, parser)
             print.expr = expr
 
             ast = cast(^Ast)print
@@ -368,17 +376,17 @@ parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
         case .Var:
             lex_token(parser.lexer) // Consume the 'var' keyword.
             name := expect_token(parser.lexer, .Identifier)
-            token = peek_token(parser.lexer)
+            next := peek_token(parser.lexer)
 
             value: ^Ast_Expression
-            if token.type == .Equal {
+            if next.type == .Equal {
                 lex_token(parser.lexer) // Consume the 'equals'.
                 value = parse_expression(parser)
             } else {
-                value = cast(^Ast_Expression)new_ast_node(Ast_Nil, line_start, char_start, parser)
+                value = cast(^Ast_Expression)new_ast_node(Ast_Nil, name.code_index,  name.code_index + len(name.value), line_start, char_start, parser)
             }
 
-            var_def := new_ast_node(Ast_Var_Definition, line_start, char_start, parser)
+            var_def := new_ast_node(Ast_Var_Definition, token.code_index, value.end_code_index, line_start, char_start, parser)
             var_def.name = name.value
             var_def.value = value
 
@@ -427,23 +435,23 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
         ast_operator: ^Ast_Binary_Operator
         #partial switch maybe_operator.type {
         case .Plus:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         case .Minus:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         case .Star:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         case .Slash:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Divide, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Divide, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         case .EqualEqual:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Equal, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Equal, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         case .Less:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Less, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Less, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         case .LessEqual:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_LessEqual, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_LessEqual, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         case .Greater:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Greater, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Greater, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         case .GreaterEqual:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_GreaterEqual, line_start, char_start, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_GreaterEqual, left.start_code_index, right.end_code_index, line_start, char_start, parser)
         }
 
         assert(ast_operator != nil)
@@ -482,7 +490,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     } else {
         #partial switch token.type {
         case .Number:
-            ast := new_ast_node(Ast_Number, line_start, char_start, parser)
+            ast := new_ast_node(Ast_Number, token.code_index, token.code_index + len(token.value), line_start, char_start, parser)
 
             number, number_ok := strconv.parse_f32(token.value)
             assert(number_ok)
@@ -490,27 +498,27 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
             expr = cast(^Ast_Expression)ast
 
         case .String:
-            ast := new_ast_node(Ast_String, line_start, char_start, parser)
+            ast := new_ast_node(Ast_String, token.code_index, token.code_index + len(token.value) + 2, line_start, char_start, parser)
             ast.value = token.value
             expr = cast(^Ast_Expression)ast
 
         case .True:
-            ast := new_ast_node(Ast_Bool, line_start, char_start, parser)
+            ast := new_ast_node(Ast_Bool, token.code_index, token.code_index + 4, line_start, char_start, parser)
             ast.value = true
             expr = cast(^Ast_Expression)ast
 
         case .False:
-            ast := new_ast_node(Ast_Bool, line_start, char_start, parser)
+            ast := new_ast_node(Ast_Bool, token.code_index, token.code_index + 5,  line_start, char_start, parser)
             ast.value = false
             expr = cast(^Ast_Expression)ast
 
         case .Nil:
-            ast := new_ast_node(Ast_Nil, line_start, char_start, parser)
+            ast := new_ast_node(Ast_Nil, token.code_index, token.code_index + 3,  line_start, char_start, parser)
             expr = cast(^Ast_Expression)ast
 
         case .Identifier:
             // @Incomplete: Parse function calls.
-            ast := new_ast_node(Ast_Var, line_start, char_start, parser)
+            ast := new_ast_node(Ast_Var, token.code_index, token.code_index + len(token.value),  line_start, char_start, parser)
             ast.name = token.value
             expr = cast(^Ast_Expression)ast
 
@@ -520,7 +528,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     }
 
     if is_negate {
-        negate := new_ast_node(Ast_Negate, line_start, char_start, parser)
+        negate := new_ast_node(Ast_Negate, token.code_index, expr.end_code_index, line_start, char_start, parser)
         negate.operand = expr
         return negate
     } else {

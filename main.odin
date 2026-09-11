@@ -33,8 +33,9 @@ main :: proc() {
         fmt.eprintfln("ERROR: Could not open source file %v.", options.source_file)
         os.exit(1)
     }
+    source_code := cast(string)source_file_data
 
-    lexer := Lexer{file_name = options.source_file, code = cast(string)source_file_data, code_index = 0}
+    lexer := Lexer{file_name = options.source_file, code = source_code, code_index = 0}
     if options.lex_only {
         token: Token
         for token.type != .Eof {
@@ -71,7 +72,7 @@ main :: proc() {
                 }
 
                 if !options.parse_only {
-                    interp := Interp{}
+                    interp := Interp{code = source_code}
                     defer delete_interp(interp)
 
                     value := evaluate_expression(&interp, expr)
@@ -86,7 +87,7 @@ main :: proc() {
                 }
 
                 if !options.parse_only {
-                    interp := Interp{}
+                    interp := Interp{code = source_code}
                     defer delete_interp(interp)
 
                     evaluate(&interp, global_scope)

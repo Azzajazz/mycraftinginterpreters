@@ -64,15 +64,15 @@ Lexer :: struct {
     code_index: int,
 }
 
-get_token_line_and_char :: proc(lexer: ^Lexer, token: Token) -> (line: int, char: int) {
+get_line_and_char :: proc(code: string, code_index: int) -> (line: int, char: int) {
     line_start_index: int
-    for i in 0..<token.code_index {
-        if lexer.code[i] == '\n' {
+    for i in 0..<code_index {
+        if code[i] == '\n' {
             line_start_index = i + 1
             line += 1
         }
     }
-    char = token.code_index - line_start_index
+    char = code_index - line_start_index
 
     return line, char
 }
@@ -109,7 +109,7 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
     char := token.code_index - line_start_index
     size := get_token_length(lexer, token)
 
-    line_number, char_number := get_token_line_and_char(lexer, token)
+    line_number, char_number := get_line_and_char(lexer.code, token.code_index)
 
     fmt.eprintf("%v(%v:%v) Error: ", lexer.file_name, line_number + 1, char_number + 1)
     fmt.eprintfln(format, ..args)
