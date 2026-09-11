@@ -15,3 +15,7 @@ This is just a list to write down stuff to do as I come across it.
 - More compact AST printing.
 
 - report_lex_error for EOF.
+
+- Error API improvements:
+    - reporting and recovering from parse errors.
+    - Flexible messaging in expect_token.
