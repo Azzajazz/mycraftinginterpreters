@@ -1,3 +1,3 @@
-print 8
-+
-"hello";
+fun foo() {
+    print "hello"
+}
