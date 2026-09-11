@@ -1,3 +1,4 @@
-fun foo() {
-    print "hello"
+fun foo(a, b, c) {
+    print "hello";
+    print "world";
 }

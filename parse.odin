@@ -191,6 +191,11 @@ new_ast_node :: proc($T: typeid, start_code_index, end_code_index: int, parser: 
         ast.children.allocator = parser.ast_allocator
     }
 
+    // @Memory @Cleanup :DynamicArrayInArena
+    when T == Ast_Function {
+        ast.params.allocator = parser.ast_allocator
+    }
+    
     return ast
 }
 
@@ -385,9 +390,31 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
         lex_token(parser.lexer) // Consume the 'fun' keyword.
         name := expect_token(parser.lexer, .Identifier)
 
-        // @Incomplete: Parse parameter list.
+        function := new_ast_node(Ast_Function, token.code_index, name.code_index, parser)
+
+        // @Cleanup: The error messages here aren't great...
+        // Parse parameter list.
         expect_token(parser.lexer, .LeftParen)
-        expect_token(parser.lexer, .RightParen)
+        token = lex_token(parser.lexer)
+        if token.type == .Identifier {
+            append(&function.params, token.value)
+            token = peek_token(parser.lexer)
+
+            for token.type != .RightParen {
+                if token.type == .Eof {
+                    report_error(parser.code, function, "Reached end of file while parsing a parameter list.")
+                }
+
+                expect_token(parser.lexer, .Comma, ",")
+                param := expect_token(parser.lexer, .Identifier)
+                append(&function.params, param.value)
+
+                token = peek_token(parser.lexer)
+            }
+        } else if token.type != .RightParen {
+            report_lex_error(parser.lexer, token, "Expected a ')' or ',', got a %v", token.type)
+        }
+        lex_token(parser.lexer) // Consume the right paren.
 
         body := parse_declaration(parser)
         if body.type != .Scope {
@@ -395,7 +422,6 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
             report_error(parser.code, body, "Function body must be a scope.")
         }
 
-        function := new_ast_node(Ast_Function, token.code_index, body.end_code_index, parser)
         function.name = name.value
         function.body = cast(^Ast_Scope)body
 
@@ -404,8 +430,6 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
     case:
         return parse_statement(parser)
     }
-
-    unreachable()
 }
 
 parse_statement :: proc(parser: ^Parser) -> ^Ast {
