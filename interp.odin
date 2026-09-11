@@ -37,12 +37,16 @@ is_in_global_scope :: proc(interp: ^Interp) -> bool {
 }
 
 report_error :: proc(code: string, ast: ^Ast, format: string, args: ..any) {
+    fmt.eprintf("%v(%v:%v) Error: ", ast.file_name, ast.line_start + 1, ast.char_start + 1)
+    fmt.eprintfln(format, ..args)
+
+    // @Cleanup: Ewwwwwwww.
     first_line_start_index := ast.start_code_index
     for first_line_start_index > 0 && code[first_line_start_index - 1] != '\n' {
         first_line_start_index -= 1
     }
 
-    last_line_end_index := ast.start_code_index
+    last_line_end_index := ast.end_code_index
     for last_line_end_index < len(code) && code[last_line_end_index] != '\n' {
         last_line_end_index += 1
     }
@@ -55,6 +59,7 @@ report_error :: proc(code: string, ast: ^Ast, format: string, args: ..any) {
     assert(line_ok)
     fmt.eprintfln("    %v", line)
     fmt.eprint("    ")
+
     padding := code_index_cursor - first_line_start_index
     end_index_relative_to_line := ast.end_code_index - first_line_start_index
     arrows := min(len(line), end_index_relative_to_line) - padding
@@ -65,6 +70,7 @@ report_error :: proc(code: string, ast: ^Ast, format: string, args: ..any) {
         fmt.eprint("^")
     }
     fmt.eprintln()
+
     code_index_cursor += arrows + 1 // + 1 to account for the newline.
     
     // The rest of the lines.
@@ -81,8 +87,6 @@ report_error :: proc(code: string, ast: ^Ast, format: string, args: ..any) {
 
     line_number, char_number := get_line_and_char(code, ast.start_code_index)
 
-    fmt.eprintf("%v(%v:%v) Error: ", ast.file_name, ast.line_start + 1, ast.char_start + 1)
-    fmt.eprintfln(format, ..args)
     os.exit(1)
 }
 
