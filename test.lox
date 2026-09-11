@@ -1,4 +1,4 @@
-fun foo(a, b, c) {
+fun foo(a) {
     print "hello";
     print "world";
 }

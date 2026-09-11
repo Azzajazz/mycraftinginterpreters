@@ -411,10 +411,10 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
                 token = peek_token(parser.lexer)
             }
+            lex_token(parser.lexer) // Consume the right paren.
         } else if token.type != .RightParen {
             report_lex_error(parser.lexer, token, "Expected a ')' or ',', got a %v", token.type)
         }
-        lex_token(parser.lexer) // Consume the right paren.
 
         body := parse_declaration(parser)
         if body.type != .Scope {
