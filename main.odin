@@ -99,6 +99,7 @@ main :: proc() {
         }
 
         free_all(ast_allocator)
+        free_all(strings_allocator)
     }
 
     if had_error {

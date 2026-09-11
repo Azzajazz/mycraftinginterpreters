@@ -41,6 +41,7 @@ Ast_Type :: enum {
 
     Var,
     Scope,
+    Function,
 }
 
 Ast :: struct {
@@ -58,6 +59,14 @@ Ast_Scope :: struct {
     parent: ^Ast_Scope,
     // @Memory @Cleanup :DynamicArrayInArena
     children: [dynamic]^Ast,
+}
+
+Ast_Function :: struct {
+    using ast: Ast,
+
+    // @Memory @Cleanup :DynamicArrayInArena
+    params: [dynamic]string,
+    body: ^Ast_Scope,
 }
 
 Ast_Statement :: struct {
@@ -136,6 +145,7 @@ Ast_Var :: struct {
 
 ast_types := map[typeid]Ast_Type {
     Ast_Scope = .Scope,
+    Ast_Function = .Function,
     Ast_Print = .Print,
     Ast_Var_Definition = .VarDefinition,
     Ast_Number = .Number,
@@ -207,6 +217,24 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
         dump_indent(indent)
         fmt.println("  ]")
+
+    case .Function:
+        function := cast(^Ast_Function)ast
+        dump_indent(indent)
+        fmt.println("  params = [")
+
+        for param in function.params {
+            dump_indent(indent + 2)
+            fmt.println(param)
+        }
+
+        dump_indent(indent)
+        fmt.println("  ]")
+
+        dump_indent(indent)
+        fmt.print("  body = ")
+
+        dump_ast(function.body, indent + 1)
 
     case .Print:
         print := cast(^Ast_Print)ast
@@ -308,26 +336,25 @@ parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     global_scope := new_ast_node(Ast_Scope, 0, 0, parser)
     append(&parser.scopes, global_scope)
 
-    statement := parse_statement_or_scope(parser)
-    for statement != nil {
-        append(&global_scope.children, statement)
-        statement = parse_statement_or_scope(parser)
+    decl := parse_declaration(parser)
+    for decl != nil {
+        append(&global_scope.children, decl)
+        decl = parse_declaration(parser)
     }
 
     pop(&parser.scopes)
     return global_scope
 }
 
-parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
-    ast: ^Ast
-
+parse_declaration :: proc(parser: ^Parser) -> ^Ast {
     token := peek_token(parser.lexer)
 
     if token.type == .Eof {
         return nil
     }
 
-    if token.type == .LeftBrace {
+    #partial switch token.type {
+    case .LeftBrace:
         // This is a scope.
 
         lex_token(parser.lexer) // Consume the left brace.
@@ -338,8 +365,8 @@ parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
 
         token := peek_token(parser.lexer)
         for token.type != .RightBrace {
-            statement := parse_statement_or_scope(parser)
-            append(&scope.children, statement)
+            decl := parse_declaration(parser)
+            append(&scope.children, decl)
             token = peek_token(parser.lexer)
         }
 
@@ -347,7 +374,16 @@ parse_statement_or_scope :: proc(parser: ^Parser) -> ^Ast {
 
         pop(&parser.scopes)
         return scope
+
+    case:
+        return parse_statement(parser)
     }
+}
+
+parse_statement :: proc(parser: ^Parser) -> ^Ast {
+    ast: ^Ast
+
+    token := peek_token(parser.lexer)
 
     #partial switch token.type {
         case .Print:
