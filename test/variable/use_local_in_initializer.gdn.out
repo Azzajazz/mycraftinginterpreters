@@ -1,9 +1,9 @@
-#exit_code
-i:1
 #stderr
-b208:test/variable/use_local_in_initializer.lox(3:10) Error: Cannot use a local variable in its own initializer.
+b208:test/variable/use_local_in_initializer.lox(3:11) Error: Cannot use a local variable in its own initializer.
       var a = a; // Error at 'a': Can't read local variable in its own initializer.
               ^
 
 #stdout
 b0:
+#exit_code
+i:1

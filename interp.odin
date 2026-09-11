@@ -37,7 +37,8 @@ is_in_global_scope :: proc(interp: ^Interp) -> bool {
 }
 
 report_error :: proc(code: string, ast: ^Ast, format: string, args: ..any) {
-    fmt.eprintf("%v(%v:%v) Error: ", ast.file_name, ast.line_start + 1, ast.char_start + 1)
+    line_number, char_number := get_line_and_char(code, ast.start_code_index)
+    fmt.eprintf("%v(%v:%v) Error: ", ast.file_name, line_number + 1, char_number + 1)
     fmt.eprintfln(format, ..args)
 
     // @Cleanup: Ewwwwwwww.
@@ -84,8 +85,6 @@ report_error :: proc(code: string, ast: ^Ast, format: string, args: ..any) {
 
         code_index_cursor += len(line) + 1 // + 1 to account for the newline.
     }
-
-    line_number, char_number := get_line_and_char(code, ast.start_code_index)
 
     os.exit(1)
 }
