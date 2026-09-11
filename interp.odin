@@ -22,23 +22,31 @@ Value :: struct {
     },
 }
 
+Environment :: struct {
+    variables: map[string]Value,
+}
+
+delete_environment :: proc(env: Environment) {
+    delete(env.variables)
+}
+
 Interp :: struct {
     // @Temporary: We need the code for each file to live somewhere so that error messages make sense.
     // It'e either here or on every AST node.
     // Eventually we will have to support multiple files, so this will have to change.
     code: string,
-    variables: [dynamic]map[string]Value,
+    environments: [dynamic]Environment,
 
     // @Temporary? Linear allocator to store runtime constructed strings.
     strings_allocator: runtime.Allocator,
 }
 
 delete_interp :: proc(interp: Interp) {
-    delete(interp.variables)
+    delete(interp.environments)
 }
 
 is_in_global_scope :: proc(interp: ^Interp) -> bool {
-    return len(interp.variables) == 1
+    return len(interp.environments) == 1
 }
 
 report_error :: proc(code: string, ast: ^Ast, format: string, args: ..any) {
@@ -99,14 +107,14 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     case .Scope:
         scope := cast(^Ast_Scope)ast
 
-        append(&interp.variables, nil)
+        append(&interp.environments, Environment{})
 
         for child in scope.children {
             evaluate(interp, child)
         }
 
-        var_map := pop(&interp.variables)
-        delete(var_map)
+        env := pop(&interp.environments)
+        delete_environment(env)
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
@@ -125,12 +133,12 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     case .VarDefinition:
         ast_var_def := cast(^Ast_Var_Definition)ast
         value := evaluate_expression(interp, ast_var_def.value, ast_var_def.name)
-        scoped_variables := &interp.variables[len(interp.variables) - 1]
+        scoped_env := &interp.environments[len(interp.environments) - 1]
 
-        if !is_in_global_scope(interp) && ast_var_def.name in scoped_variables {
+        if !is_in_global_scope(interp) && ast_var_def.name in scoped_env.variables {
             report_error(interp.code, ast, "Cannot redefine a variable in a scope that is not the global scope.")
         } else {
-            scoped_variables[ast_var_def.name] = value
+            scoped_env.variables[ast_var_def.name] = value
         }
 
     case:
@@ -309,8 +317,8 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 }
 
 resolve_variable_value :: proc(interp: ^Interp, name: string) -> (value: Value, found: bool) {
-    #reverse for variables in interp.variables {
-        value, found = variables[name]
+    #reverse for env in interp.environments {
+        value, found = env.variables[name]
 
         if found {
             return value, found
