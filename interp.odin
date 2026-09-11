@@ -1,5 +1,7 @@
 package lox
 
+import "base:runtime"
+
 import "core:fmt"
 import "core:os"
 import "core:strings"
@@ -26,6 +28,9 @@ Interp :: struct {
     // Eventually we will have to support multiple files, so this will have to change.
     code: string,
     variables: [dynamic]map[string]Value,
+
+    // @Temporary? Linear allocator to store runtime constructed strings.
+    strings_allocator: runtime.Allocator,
 }
 
 delete_interp :: proc(interp: Interp) {
@@ -174,7 +179,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             if left.type == .Number && right.type == .Number {
                 return Value{type = .Number, value = {number = left.value.number + right.value.number}}
             } else if left.type == .String && right.type == .String {
-                new_string := strings.concatenate([]string{left.value.str, right.value.str})
+                new_string := strings.concatenate([]string{left.value.str, right.value.str}, interp.strings_allocator)
                 return Value{type = .String, value = {str = new_string}}
             } else {
                 report_error(interp.code, expr, "'+' is defined only on two Strings or two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)

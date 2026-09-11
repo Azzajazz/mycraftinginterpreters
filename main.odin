@@ -49,17 +49,20 @@ main :: proc() {
         context.allocator = mem.tracking_allocator(&track)
 
         defer {
-            /*
             for _, leak in track.allocation_map {
                 fmt.printfln("%v leaked %m", leak.location, leak.size)
             }
-            */
         }
 
-        arena: vmem.Arena
-        err := vmem.arena_init_growing(&arena)
+        ast_arena: vmem.Arena
+        err := vmem.arena_init_growing(&ast_arena)
         assert(err == nil)
-        ast_allocator := vmem.arena_allocator(&arena)
+        ast_allocator := vmem.arena_allocator(&ast_arena)
+
+        strings_arena: vmem.Arena
+        err = vmem.arena_init_growing(&strings_arena)
+        assert(err == nil)
+        strings_allocator := vmem.arena_allocator(&strings_arena)
 
         parser := Parser{lexer = &lexer, ast_allocator = ast_allocator}
         defer delete_parser(parser)
@@ -72,7 +75,7 @@ main :: proc() {
                 }
 
                 if !options.parse_only {
-                    interp := Interp{code = source_code}
+                    interp := Interp{code = source_code, strings_allocator = strings_allocator}
                     defer delete_interp(interp)
 
                     value := evaluate_expression(&interp, expr)
@@ -87,7 +90,7 @@ main :: proc() {
                 }
 
                 if !options.parse_only {
-                    interp := Interp{code = source_code}
+                    interp := Interp{code = source_code, strings_allocator = strings_allocator}
                     defer delete_interp(interp)
 
                     evaluate(&interp, global_scope)
