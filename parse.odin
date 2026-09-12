@@ -16,6 +16,10 @@ import "core:strconv"
 // Surely we can automate some of this?
 
 Ast_Type :: enum {
+    // Declarations that are not statements.
+    Scope,
+    Function,
+
     // Statements that are not expressions.
     Print,
     VarDefinition,
@@ -40,8 +44,7 @@ Ast_Type :: enum {
     GreaterEqual,
 
     Var,
-    Scope,
-    Function,
+    Call,
 }
 
 Ast :: struct {
@@ -144,6 +147,14 @@ Ast_Var :: struct {
     name: string,
 }
 
+Ast_Call :: struct {
+    using expr: Ast_Expression,
+
+    name: string,
+    // @Memory @Cleanup :DynamicArrayInArena
+    args: [dynamic]string
+}
+
 ast_types := map[typeid]Ast_Type {
     Ast_Scope = .Scope,
     Ast_Function = .Function,
@@ -164,6 +175,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Greater = .Greater,
     Ast_GreaterEqual = .GreaterEqual,
     Ast_Var = .Var,
+    Ast_Call = .Call,
 }
 
 // @Volatile: Must be kept in sync with Ast_Type.
@@ -226,6 +238,10 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
     case .Function:
         function := cast(^Ast_Function)ast
+
+        dump_indent(indent)
+        fmt.println("  name = %v", function.name)
+
         dump_indent(indent)
         fmt.println("  params = [")
 
@@ -316,6 +332,23 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
         dump_indent(indent)
         fmt.printfln("  name = %v", var.name)
+
+    case .Call:
+        call := cast(^Ast_Call)ast
+
+        dump_indent(indent)
+        fmt.println("  name = %v", call.name)
+
+        dump_indent(indent)
+        fmt.println("  args = [")
+
+        for arg in call.args {
+            dump_indent(indent + 2)
+            fmt.println(arg)
+        }
+
+        dump_indent(indent)
+        fmt.println("  ]")
     }
     dump_indent(indent)
     fmt.println(")")
@@ -394,27 +427,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
         // @Cleanup: The error messages here aren't great...
         // Parse parameter list.
-        expect_token(parser.lexer, .LeftParen)
-        token = lex_token(parser.lexer)
-        if token.type == .Identifier {
-            append(&function.params, token.value)
-            token = peek_token(parser.lexer)
-
-            for token.type != .RightParen {
-                if token.type == .Eof {
-                    report_error(parser.code, function, "Reached end of file while parsing a parameter list.")
-                }
-
-                expect_token(parser.lexer, .Comma, ",")
-                param := expect_token(parser.lexer, .Identifier)
-                append(&function.params, param.value)
-
-                token = peek_token(parser.lexer)
-            }
-            lex_token(parser.lexer) // Consume the right paren.
-        } else if token.type != .RightParen {
-            report_lex_error(parser.lexer, token, "Expected a ')' or ',', got a %v", token.type)
-        }
+        parse_parameter_list(parser, function, &function.params)
 
         body := parse_declaration(parser)
         if body.type != .Scope {
@@ -429,6 +442,30 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
     case:
         return parse_statement(parser)
+    }
+}
+
+parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]string) {
+    expect_token(parser.lexer, .LeftParen)
+    token := lex_token(parser.lexer)
+    if token.type == .Identifier {
+        append(params, token.value)
+        token = peek_token(parser.lexer)
+
+        for token.type != .RightParen {
+            if token.type == .Eof {
+                report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
+            }
+
+            expect_token(parser.lexer, .Comma, ",")
+            param := expect_token(parser.lexer, .Identifier)
+            append(params, param.value)
+
+            token = peek_token(parser.lexer)
+        }
+        lex_token(parser.lexer) // Consume the right paren.
+    } else if token.type != .RightParen {
+        report_lex_error(parser.lexer, token, "Expected a ')' or ',', got a %v", token.type)
     }
 }
 
@@ -539,7 +576,6 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
 }
 
 parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
-
     token := lex_token(parser.lexer)
 
     if token.type == .Eof {
@@ -586,10 +622,15 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
             expr = cast(^Ast_Expression)ast
 
         case .Identifier:
-            // @Incomplete: Parse function calls.
-            ast := new_ast_node(Ast_Var, token.code_index, token.code_index + len(token.value),  parser)
-            ast.name = token.value
-            expr = cast(^Ast_Expression)ast
+            next := peek_token(parser.lexer)
+            if next.type == .LeftParen {
+                
+            } else {
+                // @Incomplete: Parse function calls.
+                ast := new_ast_node(Ast_Var, token.code_index, token.code_index + len(token.value),  parser)
+                ast.name = token.value
+                expr = cast(^Ast_Expression)ast
+            }
 
         case:
             report_internal_error("Unsupported token type %v when parsing an expression leaf.", token.type)

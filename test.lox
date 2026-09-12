@@ -1,4 +1,6 @@
-fun foo(a) {
+fun foo() {
     print "hello";
     print "world";
 }
+
+foo();
