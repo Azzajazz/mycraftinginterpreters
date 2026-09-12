@@ -3,4 +3,4 @@ fun foo() {
     print "world";
 }
 
-foo();
+foo(a, b, c);

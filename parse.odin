@@ -207,6 +207,12 @@ new_ast_node :: proc($T: typeid, start_code_index, end_code_index: int, parser: 
     when T == Ast_Function {
         ast.params.allocator = parser.ast_allocator
     }
+
+    // @Memory @Cleanup :DynamicArrayInArena
+    when T == Ast_Call {
+        ast.args.allocator = parser.ast_allocator
+    }
+
     
     return ast
 }
@@ -337,7 +343,7 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         call := cast(^Ast_Call)ast
 
         dump_indent(indent)
-        fmt.println("  name = %v", call.name)
+        fmt.printfln("  name = %v", call.name)
 
         dump_indent(indent)
         fmt.println("  args = [")
@@ -624,9 +630,16 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         case .Identifier:
             next := peek_token(parser.lexer)
             if next.type == .LeftParen {
-                
+                call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
+
+                // @Cleanup: The error messages here aren't great...
+                parse_parameter_list(parser, call, &call.args)
+
+                call.end_code_index = parser.code_index
+                call.name = token.value
+
+                expr = cast(^Ast_Expression)call
             } else {
-                // @Incomplete: Parse function calls.
                 ast := new_ast_node(Ast_Var, token.code_index, token.code_index + len(token.value),  parser)
                 ast.name = token.value
                 expr = cast(^Ast_Expression)ast
