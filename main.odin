@@ -76,7 +76,6 @@ main :: proc() {
 
                 if !options.parse_only {
                     interp := Interp{code = source_code, strings_allocator = strings_allocator}
-                    defer delete_interp(interp)
 
                     value := evaluate_expression(&interp, expr)
                     fmt.println(value.value.number)
@@ -91,7 +90,6 @@ main :: proc() {
 
                 if !options.parse_only {
                     interp := Interp{code = source_code, strings_allocator = strings_allocator}
-                    defer delete_interp(interp)
 
                     evaluate(&interp, global_scope)
                 }

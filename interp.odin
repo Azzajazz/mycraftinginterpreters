@@ -23,13 +23,15 @@ Value :: struct {
 }
 
 Environment :: struct {
+    parent: ^Environment,
     variables: map[string]Value,
     functions: map[string]^Ast_Function,
 }
 
-delete_environment :: proc(env: Environment) {
+delete_environment :: proc(env: ^Environment) {
     delete(env.variables)
     delete(env.functions)
+    free(env)
 }
 
 Interp :: struct {
@@ -37,22 +39,14 @@ Interp :: struct {
     // It'e either here or on every AST node.
     // Eventually we will have to support multiple files, so this will have to change.
     code: string,
-    environments: [dynamic]Environment,
+    current_environment: ^Environment,
 
     // @Temporary? Linear allocator to store runtime constructed strings.
     strings_allocator: runtime.Allocator,
 }
 
-delete_interp :: proc(interp: Interp) {
-    delete(interp.environments)
-}
-
 is_in_global_scope :: proc(interp: ^Interp) -> bool {
-    return len(interp.environments) == 1
-}
-
-get_current_environment :: proc(interp: ^Interp) -> ^Environment {
-    return &interp.environments[len(interp.environments) - 1]
+    return interp.current_environment.parent == nil
 }
 
 report_error :: proc(code: string, ast: ^Ast, format: string, args: ..any) {
@@ -113,20 +107,22 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     case .Scope:
         scope := cast(^Ast_Scope)ast
 
-        append(&interp.environments, Environment{})
+        env := new(Environment)
+        env.parent = interp.current_environment
+        interp.current_environment = env
 
         for child in scope.children {
             evaluate(interp, child)
         }
 
-        env := pop(&interp.environments)
+        env = interp.current_environment
+        interp.current_environment = env.parent
         delete_environment(env)
 
     case .Function:
         function := cast(^Ast_Function)ast
 
-        env := get_current_environment(interp)
-        env.functions[function.name] = function
+        interp.current_environment.functions[function.name] = function
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
@@ -145,12 +141,11 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     case .VarDefinition:
         ast_var_def := cast(^Ast_Var_Definition)ast
         value := evaluate_expression(interp, ast_var_def.value, ast_var_def.name)
-        env := get_current_environment(interp)
 
-        if !is_in_global_scope(interp) && ast_var_def.name in env.variables {
+        if !is_in_global_scope(interp) && ast_var_def.name in interp.current_environment.variables {
             report_error(interp.code, ast, "Cannot redefine a variable in a scope that is not the global scope.")
         } else {
-            env.variables[ast_var_def.name] = value
+            interp.current_environment.variables[ast_var_def.name] = value
         }
 
     case:
@@ -321,6 +316,24 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 return value
             }
 
+        case .Call:
+            ast_call := cast(^Ast_Call)expr
+
+            function, function_found := resolve_function(interp, ast_call.name)
+            if !function_found {
+                report_error(interp.code, expr, "Function %v was called, but it hasn't been defined.", ast_call.name)
+            }
+
+            if len(ast_call.args) != len(function.params) {
+                report_error(interp.code, expr, "Function %v was called with the incorrect number of arguments. Expected %v arguments, got %v.", ast_call.name, len(function.params), len(ast_call.args))
+            }
+
+            // @Buggy @Incomplete: This has access to everything in the current scope, whereas we should probably only have access to things in the local function scope.
+            evaluate(interp, function.body)
+
+            // @Incomplete: Return values.
+            return Value{type = .Nil}
+
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)
     }
@@ -329,7 +342,11 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 }
 
 resolve_variable_value :: proc(interp: ^Interp, name: string) -> (value: Value, found: bool) {
-    #reverse for env in interp.environments {
+    env := interp.current_environment
+
+    for env != nil {
+        defer env = env.parent
+
         value, found = env.variables[name]
 
         if found {
@@ -338,4 +355,20 @@ resolve_variable_value :: proc(interp: ^Interp, name: string) -> (value: Value, 
     }
 
     return Value{}, false
+}
+
+resolve_function :: proc(interp: ^Interp, name: string) -> (function: ^Ast_Function, found: bool) {
+    env := interp.current_environment
+
+    for env != nil {
+        defer env = env.parent
+
+        function, found = env.functions[name]
+
+        if found {
+            return function, found
+        }
+    }
+
+    return nil, false
 }

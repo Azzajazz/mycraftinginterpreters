@@ -1,6 +1,9 @@
 fun foo() {
-    print "hello";
+    print a;
     print "world";
 }
 
-foo(a, b, c);
+{
+    var a = 5;
+    foo();
+}
