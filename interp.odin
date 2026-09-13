@@ -22,10 +22,15 @@ Value :: struct {
     },
 }
 
+Function_Info :: struct {
+    ast: ^Ast_Function,
+    enclosing_env: ^Environment,
+}
+
 Environment :: struct {
     parent: ^Environment,
     variables: map[string]Value,
-    functions: map[string]^Ast_Function,
+    functions: map[string]Function_Info,
 }
 
 delete_environment :: proc(env: ^Environment) {
@@ -122,7 +127,10 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
     case .Function:
         function := cast(^Ast_Function)ast
 
-        interp.current_environment.functions[function.name] = function
+        interp.current_environment.functions[function.name] = Function_Info{
+            ast = function,
+            enclosing_env = interp.current_environment,
+        }
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
@@ -324,12 +332,12 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 report_error(interp.code, expr, "Function %v was called, but it hasn't been defined.", ast_call.name)
             }
 
-            if len(ast_call.args) != len(function.params) {
-                report_error(interp.code, expr, "Function %v was called with the incorrect number of arguments. Expected %v arguments, got %v.", ast_call.name, len(function.params), len(ast_call.args))
+            if len(ast_call.args) != len(function.ast.params) {
+                report_error(interp.code, expr, "Function %v was called with the incorrect number of arguments. Expected %v arguments, got %v.", ast_call.name, len(function.ast.params), len(ast_call.args))
             }
 
             // @Buggy @Incomplete: This has access to everything in the current scope, whereas we should probably only have access to things in the local function scope.
-            evaluate(interp, function.body)
+            evaluate(interp, function.ast.body)
 
             // @Incomplete: Return values.
             return Value{type = .Nil}
@@ -357,7 +365,7 @@ resolve_variable_value :: proc(interp: ^Interp, name: string) -> (value: Value, 
     return Value{}, false
 }
 
-resolve_function :: proc(interp: ^Interp, name: string) -> (function: ^Ast_Function, found: bool) {
+resolve_function :: proc(interp: ^Interp, name: string) -> (function: Function_Info, found: bool) {
     env := interp.current_environment
 
     for env != nil {
@@ -370,5 +378,5 @@ resolve_function :: proc(interp: ^Interp, name: string) -> (function: ^Ast_Funct
         }
     }
 
-    return nil, false
+    return Function_Info{}, false
 }
