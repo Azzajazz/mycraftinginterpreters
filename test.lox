@@ -1,9 +1,10 @@
-fun foo() {
-    print a;
-    print "world";
-}
-
 {
     var a = 5;
+
+    fun foo() {
+        print a;
+        print "world";
+    }
+
     foo();
 }

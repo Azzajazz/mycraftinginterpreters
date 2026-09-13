@@ -336,9 +336,22 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 report_error(interp.code, expr, "Function %v was called with the incorrect number of arguments. Expected %v arguments, got %v.", ast_call.name, len(function.ast.params), len(ast_call.args))
             }
 
-            // @Buggy @Incomplete: This has access to everything in the current scope, whereas we should probably only have access to things in the local function scope.
-            evaluate(interp, function.ast.body)
+            old_env := interp.current_environment
 
+            // @Incomplete: Parameter bindings.
+            // @Copy-paste from case .Scope in evaluate()
+            env := new(Environment)
+            env.parent = function.enclosing_env 
+            interp.current_environment = env
+
+            for child in function.ast.body.children {
+                evaluate(interp, child)
+            }
+
+            env = interp.current_environment
+            interp.current_environment = old_env
+            delete_environment(env)
+            
             // @Incomplete: Return values.
             return Value{type = .Nil}
 
