@@ -152,7 +152,7 @@ Ast_Call :: struct {
 
     name: string,
     // @Memory @Cleanup :DynamicArrayInArena
-    args: [dynamic]string
+    args: [dynamic]^Ast_Expression,
 }
 
 ast_types := map[typeid]Ast_Type {
@@ -431,7 +431,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
         function := new_ast_node(Ast_Function, token.code_index, name.code_index, parser)
 
-        // @Cleanup: The error messages here aren't great...
+        // @Cleanup: The error messages here aren't great... nocommit
         // Parse parameter list.
         parse_parameter_list(parser, function, &function.params)
 
@@ -453,11 +453,13 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
 parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]string) {
     expect_token(parser.lexer, .LeftParen)
-    token := lex_token(parser.lexer)
-    if token.type == .Identifier {
-        append(params, token.value)
-        token = peek_token(parser.lexer)
 
+    token := peek_token(parser.lexer)
+    if token.type != .RightParen {
+        param := expect_token(parser.lexer, .Identifier)
+        append(params, param.value)
+
+        token = peek_token(parser.lexer)
         for token.type != .RightParen {
             if token.type == .Eof {
                 report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
@@ -469,10 +471,38 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
 
             token = peek_token(parser.lexer)
         }
-        lex_token(parser.lexer) // Consume the right paren.
-    } else if token.type != .RightParen {
-        report_lex_error(parser.lexer, token, "Expected a ')' or ',', got a %v", token.type)
     }
+    lex_token(parser.lexer) // Consume the right paren.
+}
+
+parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Expression) {
+    expect_token(parser.lexer, .LeftParen)
+
+    token := peek_token(parser.lexer)
+    if token.type != .RightParen {
+        expr := parse_expression(parser)
+        if expr == nil {
+            report_error(parser.code, ast, "Arguments to functions must be expressions.")
+        }
+        append(args, expr)
+
+        token = peek_token(parser.lexer)
+        for token.type != .RightParen {
+            if token.type == .Eof {
+                report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
+            }
+
+            expect_token(parser.lexer, .Comma, ",")
+            expr := parse_expression(parser)
+            if expr == nil {
+                report_error(parser.code, ast, "Arguments to functions must be expressions.")
+            }
+            append(args, expr)
+
+            token = peek_token(parser.lexer)
+        }
+    }
+    lex_token(parser.lexer) // Consume the right paren.
 }
 
 parse_statement :: proc(parser: ^Parser) -> ^Ast {
@@ -633,7 +663,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
                 call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
 
                 // @Cleanup: The error messages here aren't great...
-                parse_parameter_list(parser, call, &call.args)
+                parse_argument_list(parser, call, &call.args)
 
                 call.end_code_index = parser.code_index
                 call.name = token.value

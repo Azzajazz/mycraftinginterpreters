@@ -1,6 +1,6 @@
-fun foo(a b c) {
+fun foo(a b, c) {
     print "hello";
     print "world";
 }
 
-foo(5, "hello" + "world");
+foo(5 "hello" + "world");

@@ -128,11 +128,15 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
     had_error = true
 }
 
+// @Cleanup: Provide a message here instead of forcing it to conform to the
+// "Expected x, but got y" format.
 expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -> Token {
     token := lex_token(lexer)
-    token_code := get_token_code(lexer, token)
 
     if token.type != token_type {
+        had_error := true
+
+        token_code := get_token_code(lexer, token)
         if code == "" {
             report_lex_error(lexer, token, "Expected %v, but got '%v'.", token_type, token_code)
         } else {
@@ -141,6 +145,14 @@ expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -
     }
 
     return token
+}
+
+eat_until_lexed :: proc(lexer: ^Lexer, token_type: Token_Type) -> {
+    token := lex_token(lexer)
+
+    for token.type != .Eof && token.type != token_type {
+        token = lex_token(lexer)
+    }
 }
 
 advance_lexer :: proc(lexer: ^Lexer, steps: int) {
