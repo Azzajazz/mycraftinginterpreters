@@ -1,9 +1,6 @@
 This is just a list to write down stuff to do as I come across it.
 
-
-- Show offending code in error messages, e.g.
-    var false = 1;
-        ^^^^^
+test/function/extra_arguments needs better errors.
 
 ----------------------------------------------------------------------
 
@@ -19,3 +16,16 @@ This is just a list to write down stuff to do as I come across it.
 - Error API improvements:
     - reporting and recovering from parse errors.
     - Flexible messaging in expect_token.
+
+----------------------------------------------------------------------
+
+
+
+
+
+
+
+- failure that needs synchronization.
+    - Cases can be difficult, like an inner expression parse fails and the only way to recover is to go to the next semicolon, for example.
+- failure that doesn't need synchronization
+- failure that indicates we're at the end of a block (not necessary I think. We can peek the next token instead)

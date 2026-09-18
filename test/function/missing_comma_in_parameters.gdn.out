@@ -1,0 +1,10 @@
+#stdout
+b0:
+#exit_code
+i:1
+#stderr
+b138:test/function/missing_comma_in_parameters.lox(3:14) Error: Expected ',', but got 'c'.
+    fun foo(a, b c, d, e, f) {}
+                 ^
+
+

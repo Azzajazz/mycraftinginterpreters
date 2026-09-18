@@ -1,0 +1,9 @@
+#stdout
+b0:
+#stderr
+b113:test/function/body_must_be_block.lox(3:9) Error: Function body must be a scope.
+    fun f() 123;
+            ^^^
+
+#exit_code
+i:1

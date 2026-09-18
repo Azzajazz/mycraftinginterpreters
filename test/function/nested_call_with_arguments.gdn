@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b44:test/function/nested_call_with_arguments.lox
+lend

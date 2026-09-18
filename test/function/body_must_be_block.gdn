@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b36:test/function/body_must_be_block.lox
+lend

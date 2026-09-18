@@ -1,10 +1,6 @@
-{
-    var a = 5;
-
-    fun foo() {
-        print a;
-        print "world";
-    }
-
-    foo();
+fun foo(a b c) {
+    print "hello";
+    print "world";
 }
+
+foo(5, "hello" + "world");

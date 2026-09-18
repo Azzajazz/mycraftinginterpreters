@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b35:test/function/missing_arguments.lox
+lend

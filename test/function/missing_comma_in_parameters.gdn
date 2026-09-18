@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b45:test/function/missing_comma_in_parameters.lox
+lend

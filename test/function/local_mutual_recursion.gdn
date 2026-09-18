@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b40:test/function/local_mutual_recursion.lox
+lend
