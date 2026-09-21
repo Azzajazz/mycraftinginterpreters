@@ -452,11 +452,19 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 }
 
 parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]string) {
-    expect_token(parser.lexer, .LeftParen)
+    parse_ok := true
+    defer if !parse_ok {
+        eat_until_lexed(parser.lexer, .RightParen)
+    }
+
+    _, parse_ok = expect_token(parser.lexer, .LeftParen)
+    if !parse_ok do return
 
     token := peek_token(parser.lexer)
     if token.type != .RightParen {
-        param := expect_token(parser.lexer, .Identifier)
+        param: Token
+        param, parse_ok = expect_token(parser.lexer, .Identifier)
+        if !parse_ok do return
         append(params, param.value)
 
         token = peek_token(parser.lexer)
@@ -465,8 +473,11 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
                 report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
             }
 
-            expect_token(parser.lexer, .Comma, ",")
-            param := expect_token(parser.lexer, .Identifier)
+            _, parse_ok = expect_token(parser.lexer, .Comma, ",")
+            if !parse_ok do return
+
+            param, parse_ok = expect_token(parser.lexer, .Identifier)
+            if !parse_ok do return
             append(params, param.value)
 
             token = peek_token(parser.lexer)
@@ -476,12 +487,20 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
 }
 
 parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Expression) {
-    expect_token(parser.lexer, .LeftParen)
+    parse_ok := true
+    defer if !parse_ok {
+        eat_until_lexed(parser.lexer, .RightParen)
+    }
+
+    _, parse_ok = expect_token(parser.lexer, .LeftParen)
+    if !parse_ok do return
+
 
     token := peek_token(parser.lexer)
     if token.type != .RightParen {
         expr := parse_expression(parser)
         if expr == nil {
+            // @Cleanup: Recoverable parsing errors.
             report_error(parser.code, ast, "Arguments to functions must be expressions.")
         }
         append(args, expr)
@@ -489,12 +508,16 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
         token = peek_token(parser.lexer)
         for token.type != .RightParen {
             if token.type == .Eof {
+                // @Cleanup: Recoverable parsing errors.
                 report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
             }
 
-            expect_token(parser.lexer, .Comma, ",")
+            _, token_ok := expect_token(parser.lexer, .Comma, ",")
+            if !token_ok do eat_until_lexed(parser.lexer, .Comma)
+
             expr := parse_expression(parser)
             if expr == nil {
+                // @Cleanup: Recoverable parsing errors.
                 report_error(parser.code, ast, "Arguments to functions must be expressions.")
             }
             append(args, expr)

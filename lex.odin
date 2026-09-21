@@ -7,6 +7,10 @@ import "core:strings"
 import "core:strconv"
 
 Token_Type :: enum {
+    // Used for tokens that didn't lex properly. This is only used for
+    // parsing errors; it should never reach the backend.
+    Invalid,
+
     LeftParen,
     RightParen,
     LeftBrace,
@@ -79,11 +83,15 @@ get_line_and_char :: proc(code: string, code_index: int) -> (line: int, char: in
 
 // @Performance: Some tokens have predefined lengths (e.g. keywords).
 get_token_length :: proc(lexer: ^Lexer, token: Token) -> int {
+    if token.type == .Invalid {
+        return 1
+    }
+
     lexer_copy := lexer^
     lexer_copy.code_index = token.code_index
 
     start := lexer_copy.code_index
-    lex_token(&lexer_copy)
+    lex_token(&lexer_copy, true)
     end := lexer_copy.code_index
 
     return end - start
@@ -130,11 +138,11 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
 
 // @Cleanup: Provide a message here instead of forcing it to conform to the
 // "Expected x, but got y" format.
-expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -> Token {
-    token := lex_token(lexer)
+expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -> (token: Token, ok: bool) #optional_ok {
+    token = lex_token(lexer)
 
     if token.type != token_type {
-        had_error := true
+        had_error = true
 
         token_code := get_token_code(lexer, token)
         if code == "" {
@@ -142,12 +150,14 @@ expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -
         } else {
             report_lex_error(lexer, token, "Expected '%v', but got '%v'.", code, token_code)
         }
+
+        return Token{}, false
     }
 
-    return token
+    return token, true
 }
 
-eat_until_lexed :: proc(lexer: ^Lexer, token_type: Token_Type) -> {
+eat_until_lexed :: proc(lexer: ^Lexer, token_type: Token_Type) {
     token := lex_token(lexer)
 
     for token.type != .Eof && token.type != token_type {
@@ -174,12 +184,12 @@ advance_lexer :: proc(lexer: ^Lexer, steps: int) {
 peek_token :: proc(lexer: ^Lexer) -> Token {
     // @Performance: Queue tokens so that we don't have to copy and lex here.
     old_lexer := lexer^
-    token := lex_token(lexer)
+    token := lex_token(lexer, true)
     lexer^ = old_lexer
     return token
 }
 
-lex_token :: proc(lexer: ^Lexer) -> Token {
+lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
     token: Token
 
     for lexer.code_index < len(lexer.code) && (strings.is_ascii_space(cast(rune)lexer.code[lexer.code_index]) || strings.starts_with(lexer.code[lexer.code_index:], "//")){
@@ -213,13 +223,13 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
             advance_lexer(lexer, 1)
             for lexer.code_index < len(lexer.code) && lexer.code[lexer.code_index] != '"' {
                 if lexer.code[lexer.code_index] == '\n' {
-                    report_lex_error(lexer, token, "Strings must be terminated on the same line they start on.")
+                    if !silent do report_lex_error(lexer, token, "Strings must be terminated on the same line they start on.")
                 }
                 advance_lexer(lexer, 1)
             }
 
             if lexer.code_index >= len(lexer.code) {
-                report_lex_error(lexer, token, "Expected a string to be terminated, but it wasn't.")
+                if !silent do report_lex_error(lexer, token, "Expected a string to be terminated, but it wasn't.")
             }
 
             assert(lexer.code[lexer.code_index] == '"')
@@ -315,7 +325,8 @@ lex_token :: proc(lexer: ^Lexer) -> Token {
                 token.type = .Dot
                 advance_lexer(lexer, 1)
             case:
-                report_lex_error(lexer, token, "Unexpected character '%v'.", cast(rune)c)
+                if !silent do report_lex_error(lexer, token, "Unexpected character '%v'.", cast(rune)c)
+                advance_lexer(lexer, 1)
             }
         }
     }
