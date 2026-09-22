@@ -44,8 +44,7 @@ Interp :: struct {
     // It'e either here or on every AST node.
     // Eventually we will have to support multiple files, so this will have to change.
     file: ^LoxFile,
-    file_name: string,
-    code: string,
+
     current_environment: ^Environment,
 
     // @Temporary? Linear allocator to store runtime constructed strings.
