@@ -407,9 +407,9 @@ expect_token :: proc(parser: ^Parser, token_type: Token_Type, code: string = "")
 
         token_code := get_token_code(parser.lexer.code, token)
         if code == "" {
-            report_lex_error(parser.lexer, token, "Expected %v, but got '%v'.", token_type, token_code)
+            report_lex_error(parser.lexer.file_name, parser.lexer.code, token, "Expected %v, but got '%v'.", token_type, token_code)
         } else {
-            report_lex_error(parser.lexer, token, "Expected '%v', but got '%v'.", code, token_code)
+            report_lex_error(parser.lexer.file_name, parser.lexer.code, token, "Expected '%v', but got '%v'.", code, token_code)
         }
 
         return Token{}, false
@@ -418,6 +418,11 @@ expect_token :: proc(parser: ^Parser, token_type: Token_Type, code: string = "")
     return token, true
 }
 
+skip_to_token :: proc(parser: ^Parser, token_type: Token_Type) {
+    for parser.token_index < len(parser.tokens) && parser.tokens[parser.token_index].type != token_type {
+        parser.token_index += 1
+    }
+}
 
 parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     // @Cleanup: What scope?
@@ -497,7 +502,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]string) {
     parse_ok := true
     defer if !parse_ok {
-        eat_until_lexed(parser.lexer, .RightParen)
+        skip_to_token(parser, .RightParen)
     }
 
     _, parse_ok = expect_token(parser, .LeftParen)
@@ -532,7 +537,7 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
 parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Expression) {
     parse_ok := true
     defer if !parse_ok {
-        eat_until_lexed(parser.lexer, .RightParen)
+        skip_to_token(parser, .RightParen)
     }
 
     _, parse_ok = expect_token(parser, .LeftParen)
@@ -556,7 +561,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
             }
 
             _, token_ok := expect_token(parser, .Comma, ",")
-            if !token_ok do eat_until_lexed(parser.lexer, .Comma)
+            if !token_ok do skip_to_token(parser, .Comma)
 
             expr := parse_expression(parser)
             if expr == nil {

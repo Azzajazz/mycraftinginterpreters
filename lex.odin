@@ -102,24 +102,24 @@ get_token_code :: proc(code: string, token: Token) -> string {
     return code[token.code_index:token.code_index + length]
 }
 
-report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..any) {
+report_lex_error :: proc(file_name: string, code: string, token: Token, format: string, args: ..any) {
     line_start_index := token.code_index
-    for line_start_index > 0 && lexer.code[line_start_index - 1] != '\n' {
+    for line_start_index > 0 && code[line_start_index - 1] != '\n' {
         line_start_index -= 1
     }
 
     line_end_index := token.code_index
-    for line_end_index < len(lexer.code) && lexer.code[line_end_index] != '\n' {
+    for line_end_index < len(code) && code[line_end_index] != '\n' {
         line_end_index += 1
     }
 
-    line := lexer.code[line_start_index:line_end_index]
+    line := code[line_start_index:line_end_index]
     char := token.code_index - line_start_index
-    size := get_token_length(lexer.code, token)
+    size := get_token_length(code, token)
 
-    line_number, char_number := get_line_and_char(lexer.code, token.code_index)
+    line_number, char_number := get_line_and_char(code, token.code_index)
 
-    fmt.eprintf("%v(%v:%v) Error: ", lexer.file_name, line_number + 1, char_number + 1)
+    fmt.eprintf("%v(%v:%v) Error: ", file_name, line_number + 1, char_number + 1)
     fmt.eprintfln(format, ..args)
 
     fmt.eprintfln("    %v", line)
@@ -149,14 +149,6 @@ lex :: proc(file_name: string, code: string) -> []Token {
     return tokens[:]
 }
 
-eat_until_lexed :: proc(lexer: ^Lexer, token_type: Token_Type) {
-    token := lex_token(lexer)
-
-    for token.type != .Eof && token.type != token_type {
-        token = lex_token(lexer)
-    }
-}
-
 advance_lexer :: proc(lexer: ^Lexer, steps: int) {
     for _ in 0..<steps {
         if lexer.code_index >= len(lexer.code) do break
@@ -171,14 +163,6 @@ advance_lexer :: proc(lexer: ^Lexer, steps: int) {
             lexer.char += 1
         }
     }
-}
-
-peek_token :: proc(lexer: ^Lexer) -> Token {
-    // @Performance: Queue tokens so that we don't have to copy and lex here.
-    old_lexer := lexer^
-    token := lex_token(lexer, true)
-    lexer^ = old_lexer
-    return token
 }
 
 lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
@@ -215,13 +199,13 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
             advance_lexer(lexer, 1)
             for lexer.code_index < len(lexer.code) && lexer.code[lexer.code_index] != '"' {
                 if lexer.code[lexer.code_index] == '\n' {
-                    if !silent do report_lex_error(lexer, token, "Strings must be terminated on the same line they start on.")
+                    if !silent do report_lex_error(lexer.file_name, lexer.code, token, "Strings must be terminated on the same line they start on.")
                 }
                 advance_lexer(lexer, 1)
             }
 
             if lexer.code_index >= len(lexer.code) {
-                if !silent do report_lex_error(lexer, token, "Expected a string to be terminated, but it wasn't.")
+                if !silent do report_lex_error(lexer.file_name, lexer.code, token, "Expected a string to be terminated, but it wasn't.")
             }
 
             assert(lexer.code[lexer.code_index] == '"')
@@ -317,7 +301,7 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
                 token.type = .Dot
                 advance_lexer(lexer, 1)
             case:
-                if !silent do report_lex_error(lexer, token, "Unexpected character '%v'.", cast(rune)c)
+                if !silent do report_lex_error(lexer.file_name, lexer.code, token, "Unexpected character '%v'.", cast(rune)c)
                 advance_lexer(lexer, 1)
             }
         }
