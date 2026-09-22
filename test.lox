@@ -1,1 +1,5 @@
-foo(|);
+fun foo() {
+    return "hello" + "world";
+}
+
+print foo();

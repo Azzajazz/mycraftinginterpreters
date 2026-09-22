@@ -1,0 +1,9 @@
+#stdout
+b0:
+#exit_code
+i:1
+#stderr
+b215:test/function/missing_arguments.lox(3:1) Error: Function f was called with the incorrect number of arguments. Expected 2 arguments, got 1.
+    f(1); // expect runtime error: Expected 2 arguments but got 1.
+    ^^^^
+

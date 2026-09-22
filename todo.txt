@@ -1,10 +1,6 @@
 This is just a list to write down stuff to do as I come across it.
 
-ARCHITECTURE CHANGE:
-- Lexing should be a distinct pass from parsing, which has several advantages:
-1. Arbitrary length lookahead when parsing with almost no cost.
-2. Better separation between lexing errors and parsing errors.
-3. Opportunities to pipeline the lexer and parser for increased performance.
+- Return values for functions.
 
 ----------------------------------------------------------------------
 
@@ -22,19 +18,5 @@ ARCHITECTURE CHANGE:
 
 - Error API improvements:
     - reporting and recovering from parse errors.
-    - Flexible messaging in expect_token.
-
-- Package file_name and code together.
 
 ----------------------------------------------------------------------
-
-
-
-
-
-
-
-- failure that needs synchronization.
-    - Cases can be difficult, like an inner expression parse fails and the only way to recover is to go to the next semicolon, for example.
-- failure that doesn't need synchronization
-- failure that indicates we're at the end of a block (not necessary I think. We can peek the next token instead)

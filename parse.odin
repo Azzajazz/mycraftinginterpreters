@@ -23,6 +23,7 @@ Ast_Type :: enum {
     // Statements that are not expressions.
     Print,
     VarDefinition,
+    Return,
 
     // Expressions.
     Number,
@@ -88,6 +89,12 @@ Ast_Var_Definition :: struct {
 
     name: string,
     value: ^Ast_Expression,
+}
+
+Ast_Return :: struct {
+    using stmt: Ast_Statement,
+
+    expr: ^Ast_Expression,
 }
 
 Ast_Expression :: struct {
@@ -160,6 +167,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Function = .Function,
     Ast_Print = .Print,
     Ast_Var_Definition = .VarDefinition,
+    Ast_Return = .Return,
     Ast_Number = .Number,
     Ast_String = .String,
     Ast_Bool = .Bool,
@@ -246,7 +254,7 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         function := cast(^Ast_Function)ast
 
         dump_indent(indent)
-        fmt.println("  name = %v", function.name)
+        fmt.printfln("  name = %v", function.name)
 
         dump_indent(indent)
         fmt.println("  params = [")
@@ -282,6 +290,14 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         fmt.print("  value = ")
 
         dump_ast(var_def.value, indent + 1)
+
+    case .Return:
+        ast_return := cast(^Ast_Return)ast
+
+        dump_indent(indent)
+        fmt.print("  expr = ")
+
+        dump_ast(ast_return.expr, indent + 1)
 
     case .Number:
         number := cast(^Ast_Number)ast
@@ -434,7 +450,7 @@ parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     return global_scope
 }
 
-parse_declaration :: proc(parser: ^Parser) -> ^Ast {
+parse_declaration :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
     token := next_token(parser)
 
     if token.type == .Eof {
@@ -458,7 +474,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
                 report_error(parser.file, scope.start_code_index, scope.end_code_index, "Reached end of file while parsing a scope.")
             }
 
-            decl := parse_declaration(parser)
+            decl := parse_declaration(parser, return_is_valid)
             append(&scope.children, decl)
             token = next_token(parser)
         }
@@ -478,7 +494,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
         // Parse parameter list.
         parse_parameter_list(parser, function, &function.params)
 
-        body := parse_declaration(parser)
+        body := parse_declaration(parser, true)
         if body.type != .Scope {
             // @Crash: report_error exits the program. We should recover and continue parsing instead.
             report_error(parser.file, body.start_code_index, body.end_code_index, "Function body must be a scope.")
@@ -490,7 +506,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
         return function
 
     case:
-        return parse_statement(parser)
+        return parse_statement(parser, return_is_valid)
     }
 }
 
@@ -573,7 +589,7 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
     consume_token(parser) // Consume the right paren.
 }
 
-parse_statement :: proc(parser: ^Parser) -> ^Ast {
+parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
     ast: ^Ast
 
     token := next_token(parser)
@@ -606,6 +622,19 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast {
             var_def.value = value
 
             ast = cast(^Ast)var_def
+
+        case .Return:
+            consume_token(parser)
+            expr := parse_expression(parser)
+
+            if !return_is_valid {
+                report_error(parser.file, token.code_index, expr.end_code_index, "Return statements can only be used in function scope.")
+            }
+
+            ast_return := new_ast_node(Ast_Return, token.code_index, expr.end_code_index, parser)
+            ast_return.expr = expr
+
+            ast = cast(^Ast)ast_return
 
         case:
             ast = cast(^Ast)parse_expression(parser)
