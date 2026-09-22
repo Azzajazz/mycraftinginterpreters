@@ -61,10 +61,9 @@ Token :: struct {
 }
 
 Lexer :: struct {
-    file_name: string,
+    file: ^LoxFile,
     line: int,
     char: int,
-    code: string,
     code_index: int,
 }
 
@@ -82,12 +81,13 @@ get_line_and_char :: proc(code: string, code_index: int) -> (line: int, char: in
 }
 
 // @Performance: Some tokens have predefined lengths (e.g. keywords).
-get_token_length :: proc(code: string, token: Token) -> int {
+get_token_length :: proc(file: ^LoxFile, token: Token) -> int {
     if token.type == .Invalid {
         return 1
     }
 
-    lexer := Lexer{code = code}
+    //nocommit
+    lexer := Lexer{file = file}
     lexer.code_index = token.code_index
 
     start := lexer.code_index
@@ -97,29 +97,29 @@ get_token_length :: proc(code: string, token: Token) -> int {
     return end - start
 }
 
-get_token_code :: proc(code: string, token: Token) -> string {
-    length := get_token_length(code, token)
-    return code[token.code_index:token.code_index + length]
+get_token_code :: proc(file: ^LoxFile, token: Token) -> string {
+    length := get_token_length(file, token)
+    return file.code[token.code_index:token.code_index + length]
 }
 
-report_lex_error :: proc(file_name: string, code: string, token: Token, format: string, args: ..any) {
+report_lex_error :: proc(file: ^LoxFile, token: Token, format: string, args: ..any) {
     line_start_index := token.code_index
-    for line_start_index > 0 && code[line_start_index - 1] != '\n' {
+    for line_start_index > 0 && file.code[line_start_index - 1] != '\n' {
         line_start_index -= 1
     }
 
     line_end_index := token.code_index
-    for line_end_index < len(code) && code[line_end_index] != '\n' {
+    for line_end_index < len(file.code) && file.code[line_end_index] != '\n' {
         line_end_index += 1
     }
 
-    line := code[line_start_index:line_end_index]
+    line := file.code[line_start_index:line_end_index]
     char := token.code_index - line_start_index
-    size := get_token_length(code, token)
+    size := get_token_length(file, token)
 
-    line_number, char_number := get_line_and_char(code, token.code_index)
+    line_number, char_number := get_line_and_char(file.code, token.code_index)
 
-    fmt.eprintf("%v(%v:%v) Error: ", file_name, line_number + 1, char_number + 1)
+    fmt.eprintf("%v(%v:%v) Error: ", file.path, line_number + 1, char_number + 1)
     fmt.eprintfln(format, ..args)
 
     fmt.eprintfln("    %v", line)
@@ -136,9 +136,9 @@ report_lex_error :: proc(file_name: string, code: string, token: Token, format: 
     had_error = true
 }
 
-lex :: proc(file_name: string, code: string) -> []Token {
+lex :: proc(file: ^LoxFile) -> []Token {
     tokens: [dynamic]Token
-    lexer := Lexer{file_name = file_name, code = code}
+    lexer := Lexer{file = file}
     
     token: Token
     for token.type != .Eof {
@@ -151,9 +151,9 @@ lex :: proc(file_name: string, code: string) -> []Token {
 
 advance_lexer :: proc(lexer: ^Lexer, steps: int) {
     for _ in 0..<steps {
-        if lexer.code_index >= len(lexer.code) do break
+        if lexer.code_index >= len(lexer.file.code) do break
 
-        c := lexer.code[lexer.code_index]
+        c := lexer.file.code[lexer.code_index]
         lexer.code_index += 1
 
         if c == '\n' {
@@ -168,16 +168,16 @@ advance_lexer :: proc(lexer: ^Lexer, steps: int) {
 lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
     token: Token
 
-    for lexer.code_index < len(lexer.code) && (strings.is_ascii_space(cast(rune)lexer.code[lexer.code_index]) || strings.starts_with(lexer.code[lexer.code_index:], "//")){
-        for lexer.code_index < len(lexer.code) && strings.is_ascii_space(cast(rune)lexer.code[lexer.code_index]) {
+    for lexer.code_index < len(lexer.file.code) && (strings.is_ascii_space(cast(rune)lexer.file.code[lexer.code_index]) || strings.starts_with(lexer.file.code[lexer.code_index:], "//")){
+        for lexer.code_index < len(lexer.file.code) && strings.is_ascii_space(cast(rune)lexer.file.code[lexer.code_index]) {
             advance_lexer(lexer, 1)
         }
 
         // Skip inline comments
-        if strings.starts_with(lexer.code[lexer.code_index:], "//") {
-            newline_index := strings.index_byte(lexer.code[lexer.code_index:], '\n')
+        if strings.starts_with(lexer.file.code[lexer.code_index:], "//") {
+            newline_index := strings.index_byte(lexer.file.code[lexer.code_index:], '\n')
             if newline_index == -1 {
-                lexer.code_index = len(lexer.code)
+                lexer.code_index = len(lexer.file.code)
                 // Note we don't have to update lexer.line and lexer.char here, since we're at the end of input.
             } else {
                 advance_lexer(lexer, newline_index)
@@ -187,50 +187,50 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
 
     token.code_index = lexer.code_index
 
-    if lexer.code_index >= len(lexer.code) {
+    if lexer.code_index >= len(lexer.file.code) {
         token.type = .Eof
     } else {
-        c := lexer.code[lexer.code_index]
+        c := lexer.file.code[lexer.code_index]
 
         // If we get here, then this is a string literal, a number, an identifier or a keyword.
         if c == '"' {
             // @Robustness: We should probably copy the string value out of the code here.
             string_start_index := lexer.code_index
             advance_lexer(lexer, 1)
-            for lexer.code_index < len(lexer.code) && lexer.code[lexer.code_index] != '"' {
-                if lexer.code[lexer.code_index] == '\n' {
-                    if !silent do report_lex_error(lexer.file_name, lexer.code, token, "Strings must be terminated on the same line they start on.")
+            for lexer.code_index < len(lexer.file.code) && lexer.file.code[lexer.code_index] != '"' {
+                if lexer.file.code[lexer.code_index] == '\n' {
+                    if !silent do report_lex_error(lexer.file, token, "Strings must be terminated on the same line they start on.")
                 }
                 advance_lexer(lexer, 1)
             }
 
-            if lexer.code_index >= len(lexer.code) {
-                if !silent do report_lex_error(lexer.file_name, lexer.code, token, "Expected a string to be terminated, but it wasn't.")
+            if lexer.code_index >= len(lexer.file.code) {
+                if !silent do report_lex_error(lexer.file, token, "Expected a string to be terminated, but it wasn't.")
             }
 
-            assert(lexer.code[lexer.code_index] == '"')
+            assert(lexer.file.code[lexer.code_index] == '"')
             advance_lexer(lexer, 1)
 
             assert(string_start_index <= lexer.code_index - 2)
             token.type = .String
-            token.value = lexer.code[string_start_index + 1:lexer.code_index - 1]
+            token.value = lexer.file.code[string_start_index + 1:lexer.code_index - 1]
         } else if '0' <= c && c <= '9' {
             number_start_index := lexer.code_index
 
-            for lexer.code_index < len(lexer.code) && ('0' <= lexer.code[lexer.code_index] && lexer.code[lexer.code_index] <= '9') {
+            for lexer.code_index < len(lexer.file.code) && ('0' <= lexer.file.code[lexer.code_index] && lexer.file.code[lexer.code_index] <= '9') {
                 advance_lexer(lexer, 1)
             }
 
-            if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index] == '.' && ('0' <= lexer.code[lexer.code_index + 1] && lexer.code[lexer.code_index + 1] <= '9') {
+            if lexer.code_index < len(lexer.file.code) - 1 && lexer.file.code[lexer.code_index] == '.' && ('0' <= lexer.file.code[lexer.code_index + 1] && lexer.file.code[lexer.code_index + 1] <= '9') {
                 advance_lexer(lexer, 2)
 
-                for lexer.code_index < len(lexer.code) && ('0' <= lexer.code[lexer.code_index] && lexer.code[lexer.code_index] <= '9') {
+                for lexer.code_index < len(lexer.file.code) && ('0' <= lexer.file.code[lexer.code_index] && lexer.file.code[lexer.code_index] <= '9') {
                     advance_lexer(lexer, 1)
                 }
             }
 
             token.type = .Number
-            token.value = lexer.code[number_start_index:lexer.code_index]
+            token.value = lexer.file.code[number_start_index:lexer.code_index]
         } else if ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_' {
             lex_identifier_or_keyword(lexer, &token)
         } else {
@@ -263,7 +263,7 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
                 token.type = .Star
                 advance_lexer(lexer, 1)
             case '!':
-                if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
+                if lexer.code_index < len(lexer.file.code) - 1 && lexer.file.code[lexer.code_index + 1] == '=' {
                     token.type = .BangEqual
                     advance_lexer(lexer, 2)
                 } else {
@@ -271,7 +271,7 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
                     advance_lexer(lexer, 1)
                 }
             case '=':
-                if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
+                if lexer.code_index < len(lexer.file.code) - 1 && lexer.file.code[lexer.code_index + 1] == '=' {
                     token.type = .EqualEqual
                     advance_lexer(lexer, 2)
                 } else {
@@ -279,7 +279,7 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
                     advance_lexer(lexer, 1)
                 }
             case '<':
-                if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
+                if lexer.code_index < len(lexer.file.code) - 1 && lexer.file.code[lexer.code_index + 1] == '=' {
                     token.type = .LessEqual
                     advance_lexer(lexer, 2)
                 } else {
@@ -287,7 +287,7 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
                     advance_lexer(lexer, 1)
                 }
             case '>':
-                if lexer.code_index < len(lexer.code) - 1 && lexer.code[lexer.code_index + 1] == '=' {
+                if lexer.code_index < len(lexer.file.code) - 1 && lexer.file.code[lexer.code_index + 1] == '=' {
                     token.type = .GreaterEqual
                     advance_lexer(lexer, 2)
                 } else {
@@ -301,7 +301,7 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
                 token.type = .Dot
                 advance_lexer(lexer, 1)
             case:
-                if !silent do report_lex_error(lexer.file_name, lexer.code, token, "Unexpected character '%v'.", cast(rune)c)
+                if !silent do report_lex_error(lexer.file, token, "Unexpected character '%v'.", cast(rune)c)
                 advance_lexer(lexer, 1)
             }
         }
@@ -313,14 +313,14 @@ lex_token :: proc(lexer: ^Lexer, silent := false) -> Token {
 lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     // This is an identifier.
     identifier_start_index := lexer.code_index
-    c1 := lexer.code[lexer.code_index]
+    c1 := lexer.file.code[lexer.code_index]
     for ('a' <= c1 && c1 <= 'z') || ('A' <= c1 && c1 <= 'Z') || c1 == '_' || ('0' <= c1 && c1 <= '9') {
         advance_lexer(lexer, 1)
-        if lexer.code_index >= len(lexer.code) do break
-        c1 = lexer.code[lexer.code_index]
+        if lexer.code_index >= len(lexer.file.code) do break
+        c1 = lexer.file.code[lexer.code_index]
     }
 
-    identifier := lexer.code[identifier_start_index:lexer.code_index]
+    identifier := lexer.file.code[identifier_start_index:lexer.code_index]
 
     switch {
     case identifier == "and": 
@@ -361,12 +361,12 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     }
 }
 
-dump_token :: proc(code: string, token: Token) {
+dump_token :: proc(file: ^LoxFile, token: Token) {
     type_str, type_str_ok := reflect.enum_name_from_value(token.type)
     assert(type_str_ok)
     fmt.print(type_str)
 
-    token_code := get_token_code(code, token)
+    token_code := get_token_code(file, token)
     fmt.printf(" %v", token_code)
 
     if token.type == .Number {

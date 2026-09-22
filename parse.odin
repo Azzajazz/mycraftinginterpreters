@@ -405,7 +405,9 @@ expect_token :: proc(parser: ^Parser, token_type: Token_Type, format: string, ar
 
     if token.type != token_type {
         had_error = true
-        report_lex_error(parser.file_name, parser.code, token, format, ..args)
+        //nocommit
+        file := LoxFile{parser.file_name, parser.code}
+        report_lex_error(&file, token, format, ..args)
 
         return Token{}, false
     }
@@ -732,7 +734,9 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
                 call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
 
                 // @Cleanup: The error messages here aren't great...
-                token_length := get_token_length(parser.code, token)
+                //nocommit
+                file := LoxFile{parser.file_name, parser.code}
+                token_length := get_token_length(&file, token)
                 parse_argument_list(parser, token.code_index, token.code_index + token_length, &call.args)
 
                 // @Temporary @Hack.

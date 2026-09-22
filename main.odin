@@ -46,14 +46,16 @@ main :: proc() {
     }
     source_code := cast(string)source_file_data
 
+    file := LoxFile{path = options.source_file, code = source_code}
+
     interpret: {
         // Lexing.
-        tokens := lex(options.source_file, source_code)
+        tokens := lex(&file)
         defer delete(tokens)
 
         if options.lex_only {
             for token in tokens {
-                dump_token(source_code, token)
+                dump_token(&file, token)
             }
 
             break interpret
