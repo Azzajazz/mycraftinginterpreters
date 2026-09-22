@@ -188,7 +188,7 @@ new_ast_node :: proc($T: typeid, start_code_index, end_code_index: int, parser: 
     ast := new(T, parser.ast_allocator)
     ast.type = ast_types[T]
 
-    ast.file_name = parser.file_name
+    ast.file_name = parser.file.path
 
     ast.start_code_index = start_code_index
     ast.end_code_index = end_code_index
@@ -361,8 +361,7 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 }
 
 Parser :: struct {
-    code: string,
-    file_name: string,
+    file: ^LoxFile,
 
     tokens: []Token,
     token_index: int,
@@ -405,9 +404,7 @@ expect_token :: proc(parser: ^Parser, token_type: Token_Type, format: string, ar
 
     if token.type != token_type {
         had_error = true
-        //nocommit
-        file := LoxFile{parser.file_name, parser.code}
-        report_lex_error(&file, token, format, ..args)
+        report_lex_error(parser.file, token, format, ..args)
 
         return Token{}, false
     }
@@ -458,7 +455,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
                 // @Hack @Cleanup: We're using `scope` as the AST node here, for lack of something better.
                 // This probably means we need a more general report_error function, or
                 // at least separate report_interp_error and report_parse_error.
-                report_error(parser.file_name, parser.code, scope.start_code_index, scope.end_code_index, "Reached end of file while parsing a scope.")
+                report_error(parser.file, scope.start_code_index, scope.end_code_index, "Reached end of file while parsing a scope.")
             }
 
             decl := parse_declaration(parser)
@@ -484,7 +481,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
         body := parse_declaration(parser)
         if body.type != .Scope {
             // @Crash: report_error exits the program. We should recover and continue parsing instead.
-            report_error(parser.file_name, parser.code, body.start_code_index, body.end_code_index, "Function body must be a scope.")
+            report_error(parser.file, body.start_code_index, body.end_code_index, "Function body must be a scope.")
         }
 
         function.name = name.value
@@ -516,7 +513,7 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
         token = next_token(parser)
         for token.type != .RightParen {
             if token.type == .Eof {
-                report_error(parser.file_name, parser.code, ast.start_code_index, ast.end_code_index, "Reached end of file while parsing a parameter list.")
+                report_error(parser.file, ast.start_code_index, ast.end_code_index, "Reached end of file while parsing a parameter list.")
             }
 
             _, parse_ok = expect_token(parser, .Comma, "Function parameters must be separated with a ','")
@@ -549,7 +546,7 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
         expr := parse_expression(parser)
         if expr == nil {
             // @Cleanup: Recoverable parsing errors.
-            report_error(parser.file_name, parser.code, span_start, span_end, "Arguments to functions must be expressions.")
+            report_error(parser.file, span_start, span_end, "Arguments to functions must be expressions.")
         }
         append(args, expr)
 
@@ -557,7 +554,7 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
         for token.type != .RightParen {
             if token.type == .Eof {
                 // @Cleanup: Recoverable parsing errors.
-                report_error(parser.file_name, parser.code, span_start, span_end, "Reached end of file while parsing a parameter list.")
+                report_error(parser.file, span_start, span_end, "Reached end of file while parsing a parameter list.")
             }
 
             _, token_ok := expect_token(parser, .Comma, "Arguments in function calls must be separated by ','.") 
@@ -566,7 +563,7 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
             expr := parse_expression(parser)
             if expr == nil {
                 // @Cleanup: Recoverable parsing errors.
-                report_error(parser.file_name, parser.code, span_start, span_end, "Arguments to functions must be expressions.")
+                report_error(parser.file, span_start, span_end, "Arguments to functions must be expressions.")
             }
             append(args, expr)
 
@@ -733,10 +730,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
             if next.type == .LeftParen {
                 call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
 
-                // @Cleanup: The error messages here aren't great...
-                //nocommit
-                file := LoxFile{parser.file_name, parser.code}
-                token_length := get_token_length(&file, token)
+                token_length := get_token_length(parser.file, token)
                 parse_argument_list(parser, token.code_index, token.code_index + token_length, &call.args)
 
                 // @Temporary @Hack.

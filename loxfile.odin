@@ -4,5 +4,5 @@ LoxFile :: struct {
     path: string,
     code: string,
 
-    //nocommit: Add token slice here, to be filled in by lexing.
+    //@Incomplete: Add token slice here, to be filled in by lexing.
 }

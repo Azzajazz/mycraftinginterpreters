@@ -86,7 +86,6 @@ get_token_length :: proc(file: ^LoxFile, token: Token) -> int {
         return 1
     }
 
-    //nocommit
     lexer := Lexer{file = file}
     lexer.code_index = token.code_index
 
