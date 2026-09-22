@@ -21,6 +21,8 @@ ARCHITECTURE CHANGE:
     - reporting and recovering from parse errors.
     - Flexible messaging in expect_token.
 
+- Package file_name and code together.
+
 ----------------------------------------------------------------------
 
 

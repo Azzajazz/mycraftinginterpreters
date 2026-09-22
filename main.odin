@@ -25,6 +25,17 @@ Options :: struct {
 options: Options
 
 main :: proc() {
+    track: mem.Tracking_Allocator
+    mem.tracking_allocator_init(&track, context.allocator)
+    defer mem.tracking_allocator_destroy(&track)
+    context.allocator = mem.tracking_allocator(&track)
+
+    defer {
+        for _, leak in track.allocation_map {
+            fmt.printfln("%v leaked %m", leak.location, leak.size)
+        }
+    }
+
     flags.parse_or_exit(&options, os.args)
 
     source_file_data, source_file_data_err := os.read_entire_file(options.source_file, context.allocator)
@@ -35,38 +46,29 @@ main :: proc() {
     }
     source_code := cast(string)source_file_data
 
-    if options.lex_only {
+    interpret: {
+        // Lexing.
         tokens := lex(options.source_file, source_code)
         defer delete(tokens)
 
-        for token in tokens {
-            dump_token(source_code, token)
-        }
-    } else {
-        track: mem.Tracking_Allocator
-        mem.tracking_allocator_init(&track, context.allocator)
-        defer mem.tracking_allocator_destroy(&track)
-        context.allocator = mem.tracking_allocator(&track)
-
-        defer {
-            for _, leak in track.allocation_map {
-                fmt.printfln("%v leaked %m", leak.location, leak.size)
+        if options.lex_only {
+            for token in tokens {
+                dump_token(source_code, token)
             }
+
+            break interpret
         }
 
+        if had_error do break interpret
+
+
+        // Parsing.
         ast_arena: vmem.Arena
         err := vmem.arena_init_growing(&ast_arena)
         assert(err == nil)
+        defer vmem.arena_destroy(&ast_arena)
         ast_allocator := vmem.arena_allocator(&ast_arena)
-
-        strings_arena: vmem.Arena
-        err = vmem.arena_init_growing(&strings_arena)
-        assert(err == nil)
-        strings_allocator := vmem.arena_allocator(&strings_arena)
-
-        tokens := lex(options.source_file, source_code)
-        defer delete(tokens)
-
+        
         parser := Parser{
             file_name = options.source_file,
             code = source_code,
@@ -75,33 +77,31 @@ main :: proc() {
         }
         defer delete_parser(parser)
 
+        ast: ^Ast
         if options.expr_mode {
-            expr := parse_expression(&parser)
-            if !had_error {
-                if options.ast_dump {
-                    dump_ast(expr)
-                }
-
-                if !options.parse_only {
-                    interp := Interp{code = source_code, strings_allocator = strings_allocator}
-
-                    value := evaluate_expression(&interp, expr)
-                    fmt.println(value.value.number)
-                }
-            }
+            ast = cast(^Ast)parse_expression(&parser)
         } else {
-            global_scope := parse_all(&parser)
-            if !had_error {
-                if options.ast_dump {
-                    dump_ast(global_scope)
-                }
+            ast = parse_all(&parser)
+        }
+        if had_error do break interpret
 
-                if !options.parse_only {
-                    interp := Interp{code = source_code, strings_allocator = strings_allocator}
+        if options.ast_dump do dump_ast(ast)
+        if options.parse_only do break interpret
 
-                    evaluate(&interp, global_scope)
-                }
-            }
+
+        // Interpreting.
+        strings_arena: vmem.Arena
+        err = vmem.arena_init_growing(&strings_arena)
+        assert(err == nil)
+        defer vmem.arena_destroy(&ast_arena)
+        strings_allocator := vmem.arena_allocator(&strings_arena)
+
+        interp := Interp{code = source_code, strings_allocator = strings_allocator}
+        if options.expr_mode {
+            value := evaluate_expression(&interp, cast(^Ast_Expression)ast)
+            fmt.println(value.value.number)
+        } else {
+            evaluate(&interp, ast)
         }
 
         free_all(ast_allocator)

@@ -361,7 +361,6 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 }
 
 Parser :: struct {
-    //using lexer: ^Lexer,
     code: string,
     file_name: string,
 
