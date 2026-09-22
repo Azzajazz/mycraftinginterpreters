@@ -37,9 +37,8 @@ main :: proc() {
 
     lexer := Lexer{file_name = options.source_file, code = source_code, code_index = 0}
     if options.lex_only {
-        token: Token
-        for token.type != .Eof {
-            token = lex_token(&lexer)
+        tokens := lex(options.source_file, source_code)
+        for token in tokens {
             dump_token(&lexer, token)
         }
     } else {

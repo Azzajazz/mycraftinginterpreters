@@ -431,7 +431,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
         function := new_ast_node(Ast_Function, token.code_index, name.code_index, parser)
 
-        // @Cleanup: The error messages here aren't great... nocommit
+        // @Cleanup: The error messages here aren't great...
         // Parse parameter list.
         parse_parameter_list(parser, function, &function.params)
 

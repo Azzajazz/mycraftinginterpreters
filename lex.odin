@@ -157,6 +157,19 @@ expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -
     return token, true
 }
 
+lex :: proc(file_name: string, code: string) -> []Token {
+    tokens: [dynamic]Token
+    lexer := Lexer{file_name = file_name, code = code}
+    
+    token: Token
+    for token.type != .Eof {
+        token = lex_token(&lexer)
+        append(&tokens, token)
+    }
+
+    return tokens[:]
+}
+
 eat_until_lexed :: proc(lexer: ^Lexer, token_type: Token_Type) {
     token := lex_token(lexer)
 

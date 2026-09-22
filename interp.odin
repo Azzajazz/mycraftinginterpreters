@@ -352,7 +352,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             interp.current_environment = old_env
             delete_environment(env)
             
-            // @Incomplete: Return values. nocommit
+            // @Incomplete: Return values.
             return Value{type = .Nil}
 
         case:

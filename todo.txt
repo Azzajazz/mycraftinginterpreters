@@ -1,6 +1,10 @@
 This is just a list to write down stuff to do as I come across it.
 
-test/function/extra_arguments needs better errors.
+ARCHITECTURE CHANGE:
+- Lexing should be a distinct pass from parsing, which has several advantages:
+1. Arbitrary length lookahead when parsing with almost no cost.
+2. Better separation between lexing errors and parsing errors.
+3. Opportunities to pipeline the lexer and parser for increased performance.
 
 ----------------------------------------------------------------------
 
