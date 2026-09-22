@@ -55,6 +55,7 @@ is_in_global_scope :: proc(interp: ^Interp) -> bool {
     return interp.current_environment.parent == nil
 }
 
+// :SpansForErrors
 // @Cleanup: Maybe introduce some concept of spans?
 report_error :: proc(file_name: string, code: string, span_start, span_end: int, format: string, args: ..any) {
     line_number, char_number := get_line_and_char(code, span_start)

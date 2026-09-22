@@ -13,6 +13,9 @@ ARCHITECTURE CHANGE:
 - Lexical spans on scopes.
         // @Cleanup: What scope?
 
+- Lexical spans in general.
+    // :SpansForErrors
+
 - More compact AST printing.
 
 - report_lex_error for EOF.

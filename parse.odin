@@ -530,7 +530,9 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
     consume_token(parser) // Consume the right paren.
 }
 
-parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Expression) {
+// :SpansForErrors
+// @Cleanup: Introduce spans.
+parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[dynamic]^Ast_Expression) {
     parse_ok := true
     defer if !parse_ok {
         skip_to_token(parser, .RightParen)
@@ -545,7 +547,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
         expr := parse_expression(parser)
         if expr == nil {
             // @Cleanup: Recoverable parsing errors.
-            report_error(parser.file_name, parser.code, ast.start_code_index, ast.end_code_index, "Arguments to functions must be expressions.")
+            report_error(parser.file_name, parser.code, span_start, span_end, "Arguments to functions must be expressions.")
         }
         append(args, expr)
 
@@ -553,7 +555,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
         for token.type != .RightParen {
             if token.type == .Eof {
                 // @Cleanup: Recoverable parsing errors.
-                report_error(parser.file_name, parser.code, ast.start_code_index, ast.end_code_index, "Reached end of file while parsing a parameter list.")
+                report_error(parser.file_name, parser.code, span_start, span_end, "Reached end of file while parsing a parameter list.")
             }
 
             _, token_ok := expect_token(parser, .Comma, "Arguments in function calls must be separated by ','.") 
@@ -562,7 +564,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
             expr := parse_expression(parser)
             if expr == nil {
                 // @Cleanup: Recoverable parsing errors.
-                report_error(parser.file_name, parser.code, ast.start_code_index, ast.end_code_index, "Arguments to functions must be expressions.")
+                report_error(parser.file_name, parser.code, span_start, span_end, "Arguments to functions must be expressions.")
             }
             append(args, expr)
 
@@ -730,9 +732,11 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
                 call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
 
                 // @Cleanup: The error messages here aren't great...
-                parse_argument_list(parser, call, &call.args)
+                token_length := get_token_length(parser.code, token)
+                parse_argument_list(parser, token.code_index, token.code_index + token_length, &call.args)
 
-                // Broken: call.end_code_index = parser.code_index
+                // @Temporary @Hack.
+                call.end_code_index = parser.tokens[parser.token_index].code_index
                 call.name = token.value
 
                 expr = cast(^Ast_Expression)call
