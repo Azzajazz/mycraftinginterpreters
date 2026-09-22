@@ -136,27 +136,6 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
     had_error = true
 }
 
-// @Cleanup: Provide a message here instead of forcing it to conform to the
-// "Expected x, but got y" format.
-expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -> (token: Token, ok: bool) #optional_ok {
-    token = lex_token(lexer)
-
-    if token.type != token_type {
-        had_error = true
-
-        token_code := get_token_code(lexer.code, token)
-        if code == "" {
-            report_lex_error(lexer, token, "Expected %v, but got '%v'.", token_type, token_code)
-        } else {
-            report_lex_error(lexer, token, "Expected '%v', but got '%v'.", code, token_code)
-        }
-
-        return Token{}, false
-    }
-
-    return token, true
-}
-
 lex :: proc(file_name: string, code: string) -> []Token {
     tokens: [dynamic]Token
     lexer := Lexer{file_name = file_name, code = code}

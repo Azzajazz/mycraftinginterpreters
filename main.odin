@@ -37,12 +37,12 @@ main :: proc() {
 
     if options.lex_only {
         tokens := lex(options.source_file, source_code)
+        defer delete(tokens)
+
         for token in tokens {
             dump_token(source_code, token)
         }
     } else {
-        lexer := Lexer{file_name = options.source_file, code = source_code, code_index = 0}
-
         track: mem.Tracking_Allocator
         mem.tracking_allocator_init(&track, context.allocator)
         defer mem.tracking_allocator_destroy(&track)
@@ -64,7 +64,11 @@ main :: proc() {
         assert(err == nil)
         strings_allocator := vmem.arena_allocator(&strings_arena)
 
-        parser := Parser{lexer = &lexer, ast_allocator = ast_allocator}
+        lexer := Lexer{file_name = options.source_file, code = source_code, code_index = 0}
+        tokens := lex(options.source_file, source_code)
+        defer delete(tokens)
+
+        parser := Parser{lexer = &lexer, tokens = tokens, ast_allocator = ast_allocator}
         defer delete_parser(parser)
 
         if options.expr_mode {

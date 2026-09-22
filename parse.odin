@@ -363,6 +363,9 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 Parser :: struct {
     using lexer: ^Lexer,
 
+    tokens: []Token,
+    token_index: int,
+
     // Allocator for AST nodes (almost surely a linear allocator). We use this when calling
     // `new` on an AST node and allow dynamic arrays and maps to use the context allocator
     // since they are unfriendly to linear allocators.
@@ -375,6 +378,46 @@ Parser :: struct {
 delete_parser :: proc(parser: Parser) {
     delete(parser.scopes)
 }
+
+consume_token :: proc(parser: ^Parser) -> Token {
+    if parser.token_index >= len(parser.tokens) {
+        return Token{type = .Eof}
+    }
+
+    token := parser.tokens[parser.token_index]
+    parser.token_index += 1
+    return token
+}
+
+next_token :: proc(parser: ^Parser) -> Token {
+    if parser.token_index >= len(parser.tokens) {
+        return Token{type = .Eof}
+    }
+
+    return parser.tokens[parser.token_index]
+}
+
+// @Cleanup: Provide a message here instead of forcing it to conform to the
+// "Expected x, but got y" format.
+expect_token :: proc(parser: ^Parser, token_type: Token_Type, code: string = "") -> (token: Token, ok: bool) #optional_ok {
+    token = consume_token(parser)
+
+    if token.type != token_type {
+        had_error = true
+
+        token_code := get_token_code(parser.lexer.code, token)
+        if code == "" {
+            report_lex_error(parser.lexer, token, "Expected %v, but got '%v'.", token_type, token_code)
+        } else {
+            report_lex_error(parser.lexer, token, "Expected '%v', but got '%v'.", code, token_code)
+        }
+
+        return Token{}, false
+    }
+
+    return token, true
+}
+
 
 parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     // @Cleanup: What scope?
@@ -392,7 +435,7 @@ parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
 }
 
 parse_declaration :: proc(parser: ^Parser) -> ^Ast {
-    token := peek_token(parser.lexer)
+    token := next_token(parser)
 
     if token.type == .Eof {
         return nil
@@ -400,13 +443,13 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
     #partial switch token.type {
     case .LeftBrace:
-        lex_token(parser.lexer) // Consume the left brace.
+        consume_token(parser) // Consume the left brace.
         // @Cleanup: What scope?
         scope := new_ast_node(Ast_Scope, 0, 0, parser)
         scope.parent = parser.scopes[len(parser.scopes) - 1]
         append(&parser.scopes, scope)
 
-        token := peek_token(parser.lexer)
+        token := next_token(parser)
         for token.type != .RightBrace {
             if token.type == .Eof {
                 // @Hack @Cleanup: We're using `scope` as the AST node here, for lack of something better.
@@ -417,17 +460,17 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
             decl := parse_declaration(parser)
             append(&scope.children, decl)
-            token = peek_token(parser.lexer)
+            token = next_token(parser)
         }
 
-        lex_token(parser.lexer) // Consume the right brace.
+        consume_token(parser) // Consume the right brace.
 
         pop(&parser.scopes)
         return scope
 
     case .Fun:
-        lex_token(parser.lexer) // Consume the 'fun' keyword.
-        name := expect_token(parser.lexer, .Identifier)
+        consume_token(parser) // Consume the 'fun' keyword.
+        name := expect_token(parser, .Identifier)
 
         function := new_ast_node(Ast_Function, token.code_index, name.code_index, parser)
 
@@ -457,33 +500,33 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
         eat_until_lexed(parser.lexer, .RightParen)
     }
 
-    _, parse_ok = expect_token(parser.lexer, .LeftParen)
+    _, parse_ok = expect_token(parser, .LeftParen)
     if !parse_ok do return
 
-    token := peek_token(parser.lexer)
+    token := next_token(parser)
     if token.type != .RightParen {
         param: Token
-        param, parse_ok = expect_token(parser.lexer, .Identifier)
+        param, parse_ok = expect_token(parser, .Identifier)
         if !parse_ok do return
         append(params, param.value)
 
-        token = peek_token(parser.lexer)
+        token = next_token(parser)
         for token.type != .RightParen {
             if token.type == .Eof {
                 report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
             }
 
-            _, parse_ok = expect_token(parser.lexer, .Comma, ",")
+            _, parse_ok = expect_token(parser, .Comma, ",")
             if !parse_ok do return
 
-            param, parse_ok = expect_token(parser.lexer, .Identifier)
+            param, parse_ok = expect_token(parser, .Identifier)
             if !parse_ok do return
             append(params, param.value)
 
-            token = peek_token(parser.lexer)
+            token = next_token(parser)
         }
     }
-    lex_token(parser.lexer) // Consume the right paren.
+    consume_token(parser) // Consume the right paren.
 }
 
 parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Expression) {
@@ -492,11 +535,11 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
         eat_until_lexed(parser.lexer, .RightParen)
     }
 
-    _, parse_ok = expect_token(parser.lexer, .LeftParen)
+    _, parse_ok = expect_token(parser, .LeftParen)
     if !parse_ok do return
 
 
-    token := peek_token(parser.lexer)
+    token := next_token(parser)
     if token.type != .RightParen {
         expr := parse_expression(parser)
         if expr == nil {
@@ -505,14 +548,14 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
         }
         append(args, expr)
 
-        token = peek_token(parser.lexer)
+        token = next_token(parser)
         for token.type != .RightParen {
             if token.type == .Eof {
                 // @Cleanup: Recoverable parsing errors.
                 report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
             }
 
-            _, token_ok := expect_token(parser.lexer, .Comma, ",")
+            _, token_ok := expect_token(parser, .Comma, ",")
             if !token_ok do eat_until_lexed(parser.lexer, .Comma)
 
             expr := parse_expression(parser)
@@ -522,20 +565,20 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
             }
             append(args, expr)
 
-            token = peek_token(parser.lexer)
+            token = next_token(parser)
         }
     }
-    lex_token(parser.lexer) // Consume the right paren.
+    consume_token(parser) // Consume the right paren.
 }
 
 parse_statement :: proc(parser: ^Parser) -> ^Ast {
     ast: ^Ast
 
-    token := peek_token(parser.lexer)
+    token := next_token(parser)
 
     #partial switch token.type {
         case .Print:
-            lex_token(parser.lexer) // Consume the 'print' keyword.
+            consume_token(parser) // Consume the 'print' keyword.
             expr := parse_expression(parser)
 
             print := new_ast_node(Ast_Print, token.code_index, expr.end_code_index, parser)
@@ -544,13 +587,13 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast {
             ast = cast(^Ast)print
 
         case .Var:
-            lex_token(parser.lexer) // Consume the 'var' keyword.
-            name := expect_token(parser.lexer, .Identifier)
-            next := peek_token(parser.lexer)
+            consume_token(parser) // Consume the 'var' keyword.
+            name := expect_token(parser, .Identifier)
+            next := next_token(parser)
 
             value: ^Ast_Expression
             if next.type == .Equal {
-                lex_token(parser.lexer) // Consume the 'equals'.
+                consume_token(parser) // Consume the 'equals'.
                 value = parse_expression(parser)
             } else {
                 value = cast(^Ast_Expression)new_ast_node(Ast_Nil, name.code_index,  name.code_index + len(name.value), parser)
@@ -566,7 +609,7 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast {
             ast = cast(^Ast)parse_expression(parser)
     }
 
-    expect_token(parser.lexer, .Semicolon, ";")
+    expect_token(parser, .Semicolon, ";")
     return ast
 }
 
@@ -585,11 +628,11 @@ binding_powers := map[Token_Type]int{
 
 parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER) -> ^Ast_Expression {
     left := parse_expression_leaf(parser)
-    maybe_operator := peek_token(parser.lexer)
+    maybe_operator := next_token(parser)
     binding_power, has_binding := binding_powers[maybe_operator.type]
 
     for has_binding {
-        lex_token(parser.lexer) // Actually consume the operator.
+        consume_token(parser) // Actually consume the operator.
         
         right: ^Ast_Expression
         if binding_power > max_binding_power {
@@ -627,7 +670,7 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
 
         left = ast_operator
 
-        maybe_operator = peek_token(parser.lexer)
+        maybe_operator = next_token(parser)
         binding_power, has_binding = binding_powers[maybe_operator.type]
     }
 
@@ -635,7 +678,7 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
 }
 
 parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
-    token := lex_token(parser.lexer)
+    token := consume_token(parser)
 
     if token.type == .Eof {
         return nil
@@ -644,13 +687,13 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     is_negate := false
     if token.type == .Minus {
         is_negate = true
-        token = lex_token(parser.lexer)
+        token = consume_token(parser)
     }
 
     expr: ^Ast_Expression
     if token.type == .LeftParen {
         expr = parse_expression(parser)
-        expect_token(parser.lexer, .RightParen, ")")
+        expect_token(parser, .RightParen, ")")
     } else {
         #partial switch token.type {
         case .Number:
@@ -681,7 +724,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
             expr = cast(^Ast_Expression)ast
 
         case .Identifier:
-            next := peek_token(parser.lexer)
+            next := next_token(parser)
             if next.type == .LeftParen {
                 call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
 
