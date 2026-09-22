@@ -456,7 +456,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
                 // @Hack @Cleanup: We're using `scope` as the AST node here, for lack of something better.
                 // This probably means we need a more general report_error function, or
                 // at least separate report_interp_error and report_parse_error.
-                report_error(parser.code, scope, "Reached end of file while parsing a scope.")
+                report_error(parser.file_name, parser.code, scope.start_code_index, scope.end_code_index, "Reached end of file while parsing a scope.")
             }
 
             decl := parse_declaration(parser)
@@ -482,7 +482,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
         body := parse_declaration(parser)
         if body.type != .Scope {
             // @Crash: report_error exits the program. We should recover and continue parsing instead.
-            report_error(parser.code, body, "Function body must be a scope.")
+            report_error(parser.file_name, parser.code, body.start_code_index, body.end_code_index, "Function body must be a scope.")
         }
 
         function.name = name.value
@@ -514,7 +514,7 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
         token = next_token(parser)
         for token.type != .RightParen {
             if token.type == .Eof {
-                report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
+                report_error(parser.file_name, parser.code, ast.start_code_index, ast.end_code_index, "Reached end of file while parsing a parameter list.")
             }
 
             _, parse_ok = expect_token(parser, .Comma, "Function parameters must be separated with a ','")
@@ -545,7 +545,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
         expr := parse_expression(parser)
         if expr == nil {
             // @Cleanup: Recoverable parsing errors.
-            report_error(parser.code, ast, "Arguments to functions must be expressions.")
+            report_error(parser.file_name, parser.code, ast.start_code_index, ast.end_code_index, "Arguments to functions must be expressions.")
         }
         append(args, expr)
 
@@ -553,7 +553,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
         for token.type != .RightParen {
             if token.type == .Eof {
                 // @Cleanup: Recoverable parsing errors.
-                report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
+                report_error(parser.file_name, parser.code, ast.start_code_index, ast.end_code_index, "Reached end of file while parsing a parameter list.")
             }
 
             _, token_ok := expect_token(parser, .Comma, "Arguments in function calls must be separated by ','.") 
@@ -562,7 +562,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
             expr := parse_expression(parser)
             if expr == nil {
                 // @Cleanup: Recoverable parsing errors.
-                report_error(parser.code, ast, "Arguments to functions must be expressions.")
+                report_error(parser.file_name, parser.code, ast.start_code_index, ast.end_code_index, "Arguments to functions must be expressions.")
             }
             append(args, expr)
 

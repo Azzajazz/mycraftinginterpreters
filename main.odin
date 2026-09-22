@@ -96,7 +96,7 @@ main :: proc() {
         defer vmem.arena_destroy(&ast_arena)
         strings_allocator := vmem.arena_allocator(&strings_arena)
 
-        interp := Interp{code = source_code, strings_allocator = strings_allocator}
+        interp := Interp{file_name = options.source_file, code = source_code, strings_allocator = strings_allocator}
         if options.expr_mode {
             value := evaluate_expression(&interp, cast(^Ast_Expression)ast)
             fmt.println(value.value.number)
