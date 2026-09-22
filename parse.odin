@@ -361,7 +361,9 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 }
 
 Parser :: struct {
-    using lexer: ^Lexer,
+    //using lexer: ^Lexer,
+    code: string,
+    file_name: string,
 
     tokens: []Token,
     token_index: int,
@@ -405,11 +407,11 @@ expect_token :: proc(parser: ^Parser, token_type: Token_Type, code: string = "")
     if token.type != token_type {
         had_error = true
 
-        token_code := get_token_code(parser.lexer.code, token)
+        token_code := get_token_code(parser.code, token)
         if code == "" {
-            report_lex_error(parser.lexer.file_name, parser.lexer.code, token, "Expected %v, but got '%v'.", token_type, token_code)
+            report_lex_error(parser.file_name, parser.code, token, "Expected %v, but got '%v'.", token_type, token_code)
         } else {
-            report_lex_error(parser.lexer.file_name, parser.lexer.code, token, "Expected '%v', but got '%v'.", code, token_code)
+            report_lex_error(parser.file_name, parser.code, token, "Expected '%v', but got '%v'.", code, token_code)
         }
 
         return Token{}, false
@@ -736,7 +738,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
                 // @Cleanup: The error messages here aren't great...
                 parse_argument_list(parser, call, &call.args)
 
-                call.end_code_index = parser.code_index
+                // Broken: call.end_code_index = parser.code_index
                 call.name = token.value
 
                 expr = cast(^Ast_Expression)call
