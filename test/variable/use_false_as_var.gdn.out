@@ -1,5 +1,5 @@
 #stderr
-b125:test/variable/use_false_as_var.lox(2:5) Error: Expected Identifier, but got 'false'.
+b129:test/variable/use_false_as_var.lox(2:5) Error: Variable names must be valid identifiers.
     var false = "value";
         ^^^^^
 

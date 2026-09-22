@@ -400,18 +400,12 @@ next_token :: proc(parser: ^Parser) -> Token {
 
 // @Cleanup: Provide a message here instead of forcing it to conform to the
 // "Expected x, but got y" format.
-expect_token :: proc(parser: ^Parser, token_type: Token_Type, code: string = "") -> (token: Token, ok: bool) #optional_ok {
+expect_token :: proc(parser: ^Parser, token_type: Token_Type, format: string, args: ..any) -> (token: Token, ok: bool) #optional_ok {
     token = consume_token(parser)
 
     if token.type != token_type {
         had_error = true
-
-        token_code := get_token_code(parser.code, token)
-        if code == "" {
-            report_lex_error(parser.file_name, parser.code, token, "Expected %v, but got '%v'.", token_type, token_code)
-        } else {
-            report_lex_error(parser.file_name, parser.code, token, "Expected '%v', but got '%v'.", code, token_code)
-        }
+        report_lex_error(parser.file_name, parser.code, token, format, ..args)
 
         return Token{}, false
     }
@@ -423,6 +417,7 @@ skip_to_token :: proc(parser: ^Parser, token_type: Token_Type) {
     for parser.token_index < len(parser.tokens) && parser.tokens[parser.token_index].type != token_type {
         parser.token_index += 1
     }
+    parser.token_index += 1
 }
 
 parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
@@ -476,7 +471,7 @@ parse_declaration :: proc(parser: ^Parser) -> ^Ast {
 
     case .Fun:
         consume_token(parser) // Consume the 'fun' keyword.
-        name := expect_token(parser, .Identifier)
+        name := expect_token(parser, .Identifier, "Function name must be a valid identifier.")
 
         function := new_ast_node(Ast_Function, token.code_index, name.code_index, parser)
 
@@ -506,13 +501,13 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
         skip_to_token(parser, .RightParen)
     }
 
-    _, parse_ok = expect_token(parser, .LeftParen)
+    _, parse_ok = expect_token(parser, .LeftParen, "Function parameters must begin with a '('.")
     if !parse_ok do return
 
     token := next_token(parser)
     if token.type != .RightParen {
         param: Token
-        param, parse_ok = expect_token(parser, .Identifier)
+        param, parse_ok = expect_token(parser, .Identifier, "Function parameters must be valid identifiers.")
         if !parse_ok do return
         append(params, param.value)
 
@@ -522,10 +517,10 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
                 report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
             }
 
-            _, parse_ok = expect_token(parser, .Comma, ",")
+            _, parse_ok = expect_token(parser, .Comma, "Function parameters must be separated with a ','")
             if !parse_ok do return
 
-            param, parse_ok = expect_token(parser, .Identifier)
+        param, parse_ok = expect_token(parser, .Identifier, "Function parameters must be valid identifiers.")
             if !parse_ok do return
             append(params, param.value)
 
@@ -541,7 +536,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
         skip_to_token(parser, .RightParen)
     }
 
-    _, parse_ok = expect_token(parser, .LeftParen)
+    _, parse_ok = expect_token(parser, .LeftParen, "Function calls must contain their arguments in '(' and ')'.")
     if !parse_ok do return
 
 
@@ -561,7 +556,7 @@ parse_argument_list :: proc(parser: ^Parser, ast: ^Ast, args: ^[dynamic]^Ast_Exp
                 report_error(parser.code, ast, "Reached end of file while parsing a parameter list.")
             }
 
-            _, token_ok := expect_token(parser, .Comma, ",")
+            _, token_ok := expect_token(parser, .Comma, "Arguments in function calls must be separated by ','.") 
             if !token_ok do skip_to_token(parser, .Comma)
 
             expr := parse_expression(parser)
@@ -594,7 +589,7 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast {
 
         case .Var:
             consume_token(parser) // Consume the 'var' keyword.
-            name := expect_token(parser, .Identifier)
+            name := expect_token(parser, .Identifier, "Variable names must be valid identifiers.")
             next := next_token(parser)
 
             value: ^Ast_Expression
@@ -615,7 +610,7 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast {
             ast = cast(^Ast)parse_expression(parser)
     }
 
-    expect_token(parser, .Semicolon, ";")
+    expect_token(parser, .Semicolon, "Statements must be followed by a ';'.")
     return ast
 }
 
@@ -699,7 +694,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     expr: ^Ast_Expression
     if token.type == .LeftParen {
         expr = parse_expression(parser)
-        expect_token(parser, .RightParen, ")")
+        expect_token(parser, .RightParen, "Unmatched parentheses. Expected a ')'.")
     } else {
         #partial switch token.type {
         case .Number:

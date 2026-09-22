@@ -1,5 +1,5 @@
 #stderr
-b121:test/variable/use_this_as_var.lox(2:5) Error: Expected Identifier, but got 'this'.
+b126:test/variable/use_this_as_var.lox(2:5) Error: Variable names must be valid identifiers.
     var this = "value";
         ^^^^
 

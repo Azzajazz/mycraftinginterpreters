@@ -1,6 +1,10 @@
 #exit_code
-i:11
+i:1
 #stderr
-b0:
+b97:test/parsing/garbage_parameters.lox(1:5) Error: Unexpected character '|'.
+    foo(|);
+        ^
+
+
 #stdout
 b0:
