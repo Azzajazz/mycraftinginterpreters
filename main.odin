@@ -35,13 +35,14 @@ main :: proc() {
     }
     source_code := cast(string)source_file_data
 
-    lexer := Lexer{file_name = options.source_file, code = source_code, code_index = 0}
     if options.lex_only {
         tokens := lex(options.source_file, source_code)
         for token in tokens {
-            dump_token(&lexer, token)
+            dump_token(source_code, token)
         }
     } else {
+        lexer := Lexer{file_name = options.source_file, code = source_code, code_index = 0}
+
         track: mem.Tracking_Allocator
         mem.tracking_allocator_init(&track, context.allocator)
         defer mem.tracking_allocator_destroy(&track)

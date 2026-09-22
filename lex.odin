@@ -82,24 +82,24 @@ get_line_and_char :: proc(code: string, code_index: int) -> (line: int, char: in
 }
 
 // @Performance: Some tokens have predefined lengths (e.g. keywords).
-get_token_length :: proc(lexer: ^Lexer, token: Token) -> int {
+get_token_length :: proc(code: string, token: Token) -> int {
     if token.type == .Invalid {
         return 1
     }
 
-    lexer_copy := lexer^
-    lexer_copy.code_index = token.code_index
+    lexer := Lexer{code = code}
+    lexer.code_index = token.code_index
 
-    start := lexer_copy.code_index
-    lex_token(&lexer_copy, true)
-    end := lexer_copy.code_index
+    start := lexer.code_index
+    lex_token(&lexer, true)
+    end := lexer.code_index
 
     return end - start
 }
 
-get_token_code :: proc(lexer: ^Lexer, token: Token) -> string {
-    length := get_token_length(lexer, token)
-    return lexer.code[token.code_index:token.code_index + length]
+get_token_code :: proc(code: string, token: Token) -> string {
+    length := get_token_length(code, token)
+    return code[token.code_index:token.code_index + length]
 }
 
 report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..any) {
@@ -115,7 +115,7 @@ report_lex_error :: proc(lexer: ^Lexer, token: Token, format: string, args: ..an
 
     line := lexer.code[line_start_index:line_end_index]
     char := token.code_index - line_start_index
-    size := get_token_length(lexer, token)
+    size := get_token_length(lexer.code, token)
 
     line_number, char_number := get_line_and_char(lexer.code, token.code_index)
 
@@ -144,7 +144,7 @@ expect_token :: proc(lexer: ^Lexer, token_type: Token_Type, code: string = "") -
     if token.type != token_type {
         had_error = true
 
-        token_code := get_token_code(lexer, token)
+        token_code := get_token_code(lexer.code, token)
         if code == "" {
             report_lex_error(lexer, token, "Expected %v, but got '%v'.", token_type, token_code)
         } else {
@@ -398,12 +398,12 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     }
 }
 
-dump_token :: proc(lexer: ^Lexer, token: Token) {
+dump_token :: proc(code: string, token: Token) {
     type_str, type_str_ok := reflect.enum_name_from_value(token.type)
     assert(type_str_ok)
     fmt.print(type_str)
 
-    token_code := get_token_code(lexer, token)
+    token_code := get_token_code(code, token)
     fmt.printf(" %v", token_code)
 
     if token.type == .Number {
