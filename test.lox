@@ -1,5 +1,9 @@
+fun bar() {
+    return 1 + 2 + 3;
+}
+
 fun foo() {
-    return "hello" + "world";
+    return bar();
 }
 
 print foo();

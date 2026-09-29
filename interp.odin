@@ -7,10 +7,10 @@ import "core:os"
 import "core:strings"
 
 Value_Type :: enum {
+    Nil,
     String,
     Number,
     Bool,
-    Nil,
 }
 
 Value :: struct {
@@ -110,7 +110,7 @@ report_error :: proc(file: ^LoxFile, span_start, span_end: int, format: string, 
     os.exit(1)
 }
 
-evaluate :: proc(interp: ^Interp, ast: ^Ast) {
+evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (return_value: Value, did_return: bool) {
     #partial switch ast.type {
     case .Scope:
         scope := cast(^Ast_Scope)ast
@@ -118,14 +118,16 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
         env := new(Environment)
         env.parent = interp.current_environment
         interp.current_environment = env
-
-        for child in scope.children {
-            evaluate(interp, child)
+        defer {
+            env = interp.current_environment
+            interp.current_environment = env.parent
+            delete_environment(env)
         }
 
-        env = interp.current_environment
-        interp.current_environment = env.parent
-        delete_environment(env)
+        for child in scope.children {
+            return_value, did_return = evaluate(interp, child, return_is_valid)
+            if did_return do return return_value, did_return
+        }
 
     case .Function:
         function := cast(^Ast_Function)ast
@@ -159,13 +161,26 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) {
             interp.current_environment.variables[ast_var_def.name] = value
         }
 
+    case .Return:
+        ast_return := cast(^Ast_Return)ast
+
+        if return_is_valid {
+            expr := evaluate_expression(interp, ast_return.expr)
+            return expr, true
+        } else {
+            report_error(interp.file, ast.start_code_index, ast.end_code_index, "Return can only be used inside the body of a function.")
+        }
+
     case:
         if is_expression(ast) {
             evaluate_expression(interp, cast(^Ast_Expression)ast)
         } else {
             report_internal_error("Could not evaluate AST of type %v!", ast.type)
         }
+
     }
+
+    return Value{}, false
 }
 
 evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_name := "") -> Value {
@@ -347,8 +362,13 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             env.parent = function.enclosing_env 
             interp.current_environment = env
 
+            value := Value{}
             for child in function.ast.body.children {
-                evaluate(interp, child)
+                returned: bool
+                value, returned = evaluate(interp, child, true)
+                if returned {
+                    break
+                }
             }
 
             env = interp.current_environment
@@ -356,7 +376,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             delete_environment(env)
             
             // @Incomplete: Return values.
-            return Value{type = .Nil}
+            return value
 
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)
