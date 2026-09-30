@@ -361,7 +361,7 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         call := cast(^Ast_Call)ast
 
         dump_indent(indent)
-        fmt.println("  identifier_expr = ")
+        fmt.print("  identifier_expr = ")
 
         dump_ast(call.identifier_expr, indent + 1)
 
@@ -370,7 +370,7 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
         for arg in call.args {
             dump_indent(indent + 2)
-            fmt.println(arg)
+            dump_ast(arg, indent + 2)
         }
 
         dump_indent(indent)
@@ -760,29 +760,39 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
             expr = cast(^Ast_Expression)ast
 
         case .Identifier:
-            next := next_token(parser)
-            if next.type == .LeftParen {
-                call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
+            ast := new_ast_node(Ast_Var, token.code_index, token.code_index + len(token.value),  parser)
+            ast.name = token.value
+            expr = cast(^Ast_Expression)ast
 
-                token_length := get_token_length(parser.file, token)
-                parse_argument_list(parser, token.code_index, token.code_index + token_length, &call.args)
-
-                // @Temporary @Hack.
-                call.end_code_index = parser.tokens[parser.token_index].code_index
-                identifier_expr := new_ast_node(Ast_Var, token.code_index, 0 /* @Temporary */, parser)
-                identifier_expr.name = token.value
-                call.identifier_expr = identifier_expr
-
-                expr = cast(^Ast_Expression)call
-            } else {
-                ast := new_ast_node(Ast_Var, token.code_index, token.code_index + len(token.value),  parser)
-                ast.name = token.value
-                expr = cast(^Ast_Expression)ast
-            }
-
+            /*
         case:
             report_internal_error("Unsupported token type %v when parsing an expression leaf.", token.type)
+            */
         }
+    }
+
+    // Since functions are first-class in Lox, a good number of arbitrary expressions 
+    // can be called and calls can be chained, e.g. foo(bar)(baz). To support this, we
+    // handle function calls after parsing the start of the expression.
+    //
+    // We technically know that some expressions cannot be called before trying to 
+    // evaluate them (e.g. functions cannot be added together, so (foo + bar)(baz) is
+    // known to be invalid at parsing time), but we defer these cases to the evaluator
+    // for the sake of simplicity.
+
+    next := next_token(parser)
+    for next.type == .LeftParen {
+        call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
+
+        token_length := get_token_length(parser.file, token)
+        parse_argument_list(parser, token.code_index, token.code_index + token_length, &call.args)
+
+        // @Temporary @Hack.
+        call.end_code_index = parser.tokens[parser.token_index].code_index
+        call.identifier_expr = expr
+
+        expr = cast(^Ast_Expression)call
+        next = next_token(parser)
     }
 
     if is_negate {
