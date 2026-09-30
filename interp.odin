@@ -350,22 +350,15 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
         case .Call:
             ast_call := cast(^Ast_Call)expr
 
-            assert(ast_call.identifier_expr.type == .Var)
-            identifier_var := cast(^Ast_Var)ast_call.identifier_expr
-
-            function, function_found := resolve_identifier_value(interp, identifier_var.name)
-            if !function_found {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function %v was called, but it hasn't been defined.", identifier_var.name)
-            }
-
+            function := evaluate_expression(interp, ast_call.identifier_expr)
             if function.type != .Function {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Attempt to call %v, but it is not a function.", identifier_var.name)
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Attempt to call an expression that is not a function.")
             }
 
             function_ast := function.value.function
 
             if len(ast_call.args) != len(function_ast.params) {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function %v was called with the incorrect number of arguments. Expected %v arguments, got %v.", identifier_var.name, len(function_ast.params), len(ast_call.args))
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(function_ast.params), len(ast_call.args))
             }
 
             old_env := interp.current_environment
