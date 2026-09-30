@@ -1,5 +1,7 @@
-fun foo(n, m, a) {
-    return n + m * a;
+var global = 5;
+
+fun foo() {
+    return global;
 }
 
-print foo(3, 5, 2);
+print foo();

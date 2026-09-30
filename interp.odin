@@ -11,6 +11,7 @@ Value_Type :: enum {
     String,
     Number,
     Bool,
+    Function,
 }
 
 Value :: struct {
@@ -19,18 +20,14 @@ Value :: struct {
         str: string,
         number: f32,
         boolean: bool,
+        function: ^Ast_Function,
     },
-}
-
-Function_Info :: struct {
-    ast: ^Ast_Function,
-    enclosing_env: ^Environment,
 }
 
 Environment :: struct {
     parent: ^Environment,
     variables: map[string]Value,
-    functions: map[string]Function_Info,
+    functions: map[string]^Ast_Function,
 }
 
 delete_environment :: proc(env: ^Environment) {
@@ -41,14 +38,19 @@ delete_environment :: proc(env: ^Environment) {
 
 Interp :: struct {
     // @Temporary: We need the code for each file to live somewhere so that error messages make sense.
-    // It'e either here or on every AST node.
+    // It's either here or on every AST node.
     // Eventually we will have to support multiple files, so this will have to change.
     file: ^LoxFile,
 
     current_environment: ^Environment,
+    scope_envs: map[^Ast_Scope]^Environment,
 
     // @Temporary? Linear allocator to store runtime constructed strings.
     strings_allocator: runtime.Allocator,
+}
+
+delete_interp :: proc(interp: ^Interp) {
+    delete(interp.scope_envs)
 }
 
 is_in_global_scope :: proc(interp: ^Interp) -> bool {
@@ -132,23 +134,23 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
     case .Function:
         function := cast(^Ast_Function)ast
 
-        interp.current_environment.functions[function.name] = Function_Info{
-            ast = function,
-            enclosing_env = interp.current_environment,
-        }
+        interp.current_environment.functions[function.name] = function
+        interp.scope_envs[function.enclosing_scope] = interp.current_environment
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
         value := evaluate_expression(interp, ast_print.expr)
         switch value.type {
+            case .Nil:
+                fmt.println("nil")
             case .Number:
                 fmt.println(value.value.number)
             case .String:
                 fmt.println(value.value.str)
             case .Bool:
                 fmt.println(value.value.boolean)
-            case .Nil:
-                fmt.println("nil")
+            case .Function:
+                fmt.printfln("<fn %v>", value.value.function.name)
         }
 
     case .VarDefinition:
@@ -272,14 +274,17 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             }
 
             switch left.type {
+            case .Nil:
+                return Value{type = .Bool, value = {boolean = true}}
             case .Number:
                 return Value{type = .Bool, value = {boolean = left.value.number == right.value.number}}
             case .String:
                 return Value{type = .Bool, value = {boolean = left.value.str == right.value.str}}
             case .Bool:
                 return Value{type = .Bool, value = {boolean = left.value.boolean == right.value.boolean}}
-            case .Nil:
-                return Value{type = .Bool, value = {boolean = true}}
+            case .Function:
+                // @Audit: When does it make sense to compare functions equal?
+                return Value{type = .Bool, value = {boolean = false}}
             }
 
         case .Less:
@@ -334,7 +339,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             if !is_in_global_scope(interp) && ast_var.name == initialized_name {
                 report_error(interp.file, expr.start_code_index, expr.end_code_index, "Cannot use a local variable in its own initializer.")
             } else {
-                value, value_found := resolve_variable_value(interp, ast_var.name)
+                value, value_found := resolve_identifier_value(interp, ast_var.name)
                 
                 if !value_found {
                     report_error(interp.file, expr.start_code_index, expr.end_code_index, "Variable %v was used, but it hasn't been defined.", ast_var.name)
@@ -345,24 +350,30 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
         case .Call:
             ast_call := cast(^Ast_Call)expr
 
-            function, function_found := resolve_function(interp, ast_call.name)
+            function, function_found := resolve_identifier_value(interp, ast_call.name)
             if !function_found {
                 report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function %v was called, but it hasn't been defined.", ast_call.name)
             }
 
-            if len(ast_call.args) != len(function.ast.params) {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function %v was called with the incorrect number of arguments. Expected %v arguments, got %v.", ast_call.name, len(function.ast.params), len(ast_call.args))
+            if function.type != .Function {
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Attempt to call %v, but it is not a function.", ast_call.name)
+            }
+
+            function_ast := function.value.function
+
+            if len(ast_call.args) != len(function_ast.params) {
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function %v was called with the incorrect number of arguments. Expected %v arguments, got %v.", ast_call.name, len(function_ast.params), len(ast_call.args))
             }
 
             old_env := interp.current_environment
 
             env := new(Environment)
-            env.parent = function.enclosing_env 
+            env.parent = interp.scope_envs[function_ast.enclosing_scope]
 
             // Bind the values of the arguments to the parameters in the body scope.
             for i in 0..<len(ast_call.args) {
                 value := evaluate_expression(interp, ast_call.args[i])
-                env.variables[function.ast.params[i]] = value
+                env.variables[function_ast.params[i]] = value
 
                 // @Incomplete: What if the arguments are functions?
             }
@@ -370,7 +381,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             interp.current_environment = env
 
             value := Value{}
-            for child in function.ast.body.children {
+            for child in function_ast.body.children {
                 returned: bool
                 value, returned = evaluate(interp, child, true)
                 if returned {
@@ -392,34 +403,19 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
     unreachable()
 }
 
-resolve_variable_value :: proc(interp: ^Interp, name: string) -> (value: Value, found: bool) {
+resolve_identifier_value :: proc(interp: ^Interp, name: string) -> (value: Value, found: bool) {
     env := interp.current_environment
 
     for env != nil {
         defer env = env.parent
 
         value, found = env.variables[name]
+        if found do return value, found
 
-        if found {
-            return value, found
-        }
+        function: ^Ast_Function
+        function, found = env.functions[name]
+        if found do return Value{type = .Function, value = {function = function}}, found
     }
 
     return Value{}, false
-}
-
-resolve_function :: proc(interp: ^Interp, name: string) -> (function: Function_Info, found: bool) {
-    env := interp.current_environment
-
-    for env != nil {
-        defer env = env.parent
-
-        function, found = env.functions[name]
-
-        if found {
-            return function, found
-        }
-    }
-
-    return Function_Info{}, false
 }

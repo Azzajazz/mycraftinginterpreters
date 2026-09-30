@@ -72,6 +72,8 @@ Ast_Function :: struct {
     // @Memory @Cleanup :DynamicArrayInArena
     params: [dynamic]string,
     body: ^Ast_Scope,
+
+    enclosing_scope: ^Ast_Scope,
 }
 
 Ast_Statement :: struct {
@@ -502,6 +504,7 @@ parse_declaration :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
 
         function.name = name.value
         function.body = cast(^Ast_Scope)body
+        function.enclosing_scope = parser.scopes[len(parser.scopes) - 1]
 
         return function
 
