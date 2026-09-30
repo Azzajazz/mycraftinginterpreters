@@ -159,7 +159,7 @@ Ast_Var :: struct {
 Ast_Call :: struct {
     using expr: Ast_Expression,
 
-    name: string,
+    identifier_expr: ^Ast_Expression,
     // @Memory @Cleanup :DynamicArrayInArena
     args: [dynamic]^Ast_Expression,
 }
@@ -361,7 +361,9 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         call := cast(^Ast_Call)ast
 
         dump_indent(indent)
-        fmt.printfln("  name = %v", call.name)
+        fmt.println("  identifier_expr = ")
+
+        dump_ast(call.identifier_expr, indent + 1)
 
         dump_indent(indent)
         fmt.println("  args = [")
@@ -767,7 +769,9 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
 
                 // @Temporary @Hack.
                 call.end_code_index = parser.tokens[parser.token_index].code_index
-                call.name = token.value
+                identifier_expr := new_ast_node(Ast_Var, token.code_index, 0 /* @Temporary */, parser)
+                identifier_expr.name = token.value
+                call.identifier_expr = identifier_expr
 
                 expr = cast(^Ast_Expression)call
             } else {
