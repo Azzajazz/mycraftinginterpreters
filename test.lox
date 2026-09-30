@@ -1,9 +1,5 @@
-fun bar() {
-    return 1 + 2 + 3;
+fun foo(n, m, a) {
+    return n + m * a;
 }
 
-fun foo() {
-    return bar();
-}
-
-print foo();
+print foo(3, 5, 2);

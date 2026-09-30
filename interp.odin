@@ -356,10 +356,17 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 
             old_env := interp.current_environment
 
-            // @Incomplete: Parameter bindings.
-            // @Copy-paste from case .Scope in evaluate()
             env := new(Environment)
             env.parent = function.enclosing_env 
+
+            // Bind the values of the arguments to the parameters in the body scope.
+            for i in 0..<len(ast_call.args) {
+                value := evaluate_expression(interp, ast_call.args[i])
+                env.variables[function.ast.params[i]] = value
+
+                // @Incomplete: What if the arguments are functions?
+            }
+
             interp.current_environment = env
 
             value := Value{}
