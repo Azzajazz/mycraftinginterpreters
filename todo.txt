@@ -1,9 +1,12 @@
 This is just a list to write down stuff to do as I come across it.
 
-- Generalized function calls, e.g. big_func(arg1)(arg2)
-    - Ast_Call needs to use an Ast_Expression instead of a name: string.
+- Audit what is a statement, what is a declaration, etc.
 
 ----------------------------------------------------------------------
+
+- if/else
+- while
+- for
 
 - Better error messages for invalid variable names (e.g. for test/variable/use_false_as_var.lox)
 
@@ -19,7 +22,5 @@ This is just a list to write down stuff to do as I come across it.
 
 - Error API improvements:
     - reporting and recovering from parse errors.
-
-- Convert Value to an Odin union instead of using struct #raw_union.
 
 ----------------------------------------------------------------------

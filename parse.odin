@@ -15,17 +15,25 @@ import "core:strconv"
 //   - adding the mapping to ast_types.
 // Surely we can automate some of this?
 
+// Source element
+// |
+// +-- Declaration
+// |
+// +-- Statement
+//     |
+//     +-- Expression
+
 Ast_Type :: enum {
-    // Declarations that are not statements.
-    Scope,
+    // Declarations that are not statements:
     Function,
 
-    // Statements that are not expressions.
-    Print,
+    // Statements that are not expressions:
     VarDefinition,
+    Scope,
+    Print,
     Return,
 
-    // Expressions.
+    // Expressions:
     Number,
     String,
     Bool,
@@ -444,17 +452,17 @@ parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     global_scope := new_ast_node(Ast_Scope, 0, 0, parser)
     append(&parser.scopes, global_scope)
 
-    decl := parse_declaration(parser)
+    decl := parse_declaration_or_statement(parser)
     for decl != nil {
         append(&global_scope.children, decl)
-        decl = parse_declaration(parser)
+        decl = parse_declaration_or_statement(parser)
     }
 
     pop(&parser.scopes)
     return global_scope
 }
 
-parse_declaration :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
+parse_declaration_or_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
     token := next_token(parser)
 
     if token.type == .Eof {
@@ -462,32 +470,6 @@ parse_declaration :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
     }
 
     #partial switch token.type {
-    case .LeftBrace:
-        consume_token(parser) // Consume the left brace.
-        // @Cleanup: What scope?
-        scope := new_ast_node(Ast_Scope, 0, 0, parser)
-        scope.parent = parser.scopes[len(parser.scopes) - 1]
-        append(&parser.scopes, scope)
-
-        token := next_token(parser)
-        for token.type != .RightBrace {
-            if token.type == .Eof {
-                // @Hack @Cleanup: We're using `scope` as the AST node here, for lack of something better.
-                // This probably means we need a more general report_error function, or
-                // at least separate report_interp_error and report_parse_error.
-                report_error(parser.file, scope.start_code_index, scope.end_code_index, "Reached end of file while parsing a scope.")
-            }
-
-            decl := parse_declaration(parser, return_is_valid)
-            append(&scope.children, decl)
-            token = next_token(parser)
-        }
-
-        consume_token(parser) // Consume the right brace.
-
-        pop(&parser.scopes)
-        return scope
-
     case .Fun:
         consume_token(parser) // Consume the 'fun' keyword.
         name := expect_token(parser, .Identifier, "Function name must be a valid identifier.")
@@ -498,11 +480,12 @@ parse_declaration :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
         // Parse parameter list.
         parse_parameter_list(parser, function, &function.params)
 
-        body := parse_declaration(parser, true)
-        if body.type != .Scope {
-            // @Crash: report_error exits the program. We should recover and continue parsing instead.
-            report_error(parser.file, body.start_code_index, body.end_code_index, "Function body must be a scope.")
+        token = next_token(parser)
+        if token.type != .LeftBrace {
+            // @Crash @Cleanup: report_error exits the program. We should recover and continue parsing instead.
+            report_error(parser.file, token.code_index, token.code_index + get_token_length(parser.file, token), "A function body must be a scope. Expected '{{', but got '%v'.", get_token_code(parser.file, token))
         }
+        body := parse_scope(parser, true)
 
         function.name = name.value
         function.body = cast(^Ast_Scope)body
@@ -594,12 +577,45 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
     consume_token(parser) // Consume the right paren.
 }
 
+parse_scope :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
+    token := consume_token(parser) // Consume the left brace.
+    assert(token.type == .LeftBrace)
+
+    // @Cleanup: What scope?
+    scope := new_ast_node(Ast_Scope, 0, 0, parser)
+    scope.parent = parser.scopes[len(parser.scopes) - 1]
+    append(&parser.scopes, scope)
+
+    token = next_token(parser)
+    for token.type != .RightBrace {
+        if token.type == .Eof {
+            // @Hack @Cleanup: We're using `scope` as the AST node here, for lack of something better.
+            // This probably means we need a more general report_error function, or
+            // at least separate report_interp_error and report_parse_error.
+            report_error(parser.file, scope.start_code_index, scope.end_code_index, "Reached end of file while parsing a scope.")
+        }
+
+        decl := parse_declaration_or_statement(parser, return_is_valid)
+        append(&scope.children, decl)
+        token = next_token(parser)
+    }
+
+    consume_token(parser) // Consume the right brace.
+
+    pop(&parser.scopes)
+    return scope
+}
+
 parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
     ast: ^Ast
 
     token := next_token(parser)
 
     #partial switch token.type {
+        case .LeftBrace:
+            scope := parse_scope(parser, return_is_valid)
+            return scope // Early return here since we don't need a terminating semicolon.
+
         case .Print:
             consume_token(parser) // Consume the 'print' keyword.
             expr := parse_expression(parser)
