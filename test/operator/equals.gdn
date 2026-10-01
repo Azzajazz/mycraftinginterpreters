@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b24:test/operator/equals.lox
+lend

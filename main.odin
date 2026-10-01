@@ -102,7 +102,7 @@ main :: proc() {
 
         if options.expr_mode {
             value := evaluate_expression(&interp, cast(^Ast_Expression)ast)
-            fmt.println(value.value.number)
+            fmt.println(value.(f32))
         } else {
             evaluate(&interp, ast)
         }

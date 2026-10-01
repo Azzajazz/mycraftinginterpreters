@@ -1,7 +1,1 @@
-var global = 5;
-
-fun foo() {
-    return global;
-}
-
-print foo();
+"hello" + 5;

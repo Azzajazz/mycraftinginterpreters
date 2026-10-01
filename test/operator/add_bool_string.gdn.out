@@ -1,5 +1,5 @@
 #stderr
-b274:test/operator/add_bool_string.lox(1:1) Error: '+' is defined only on two Strings or two Numbers. Here, the left operand has type Bool and the right operand has type String.
+b286:test/operator/add_bool_string.lox(1:1) Error: '+' can only be applied to two 'number's or two 'string's. Here, the left operand has type 'bool' and the right operand has type 'string'.
     true + "s"; // expect runtime error: Operands must be two numbers or two strings.
     ^^^^^^^^^^
 

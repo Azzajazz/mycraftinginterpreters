@@ -1,5 +1,5 @@
 #stderr
-b248:test/operator/less_or_equal_nonnum_num.lox(1:1) Error: '<=' is defined only on two Numbers. Here, the left operand has type String and the right operand has type Number.
+b258:test/operator/less_or_equal_nonnum_num.lox(1:1) Error: '<=' can only be applied to two 'number's. Here, the left operand has type 'string' and the right operand has type 'number'.
     "1" <= 1; // expect runtime error: Operands must be numbers.
     ^^^^^^^^
 

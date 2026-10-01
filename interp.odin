@@ -6,22 +6,23 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 
-Value_Type :: enum {
-    Nil,
-    String,
-    Number,
-    Bool,
-    Function,
+Value :: union {
+    string,
+    f32,
+    bool,
+    ^Ast_Function,
 }
 
-Value :: struct {
-    type: Value_Type,
-    value: struct #raw_union {
-        str: string,
-        number: f32,
-        boolean: bool,
-        function: ^Ast_Function,
-    },
+get_value_type_name :: proc(value: Value) -> string {
+    switch _ in value {
+    case nil:           return "nil"
+    case string:        return "string"
+    case f32:           return "number"
+    case bool:          return "bool"
+    case ^Ast_Function: return "function"
+    }
+
+    unreachable()
 }
 
 Environment :: struct {
@@ -140,17 +141,13 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
     case .Print:
         ast_print := cast(^Ast_Print)ast
         value := evaluate_expression(interp, ast_print.expr)
-        switch value.type {
-            case .Nil:
+        switch v in value {
+            case nil:
                 fmt.println("nil")
-            case .Number:
-                fmt.println(value.value.number)
-            case .String:
-                fmt.println(value.value.str)
-            case .Bool:
-                fmt.println(value.value.boolean)
-            case .Function:
-                fmt.printfln("<fn %v>", value.value.function.name)
+            case f32, string, bool:
+                fmt.println(v)
+            case ^Ast_Function:
+                fmt.printfln("<fn %v>", v.name)
         }
 
     case .VarDefinition:
@@ -190,43 +187,50 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
     #partial switch expr.type {
         case .Number:
             ast_number := cast(^Ast_Number)expr
-            return Value{type = .Number, value = {number = ast_number.value}}
+            return ast_number.value
 
         case .String:
             ast_string := cast(^Ast_String)expr
-            return Value{type = .String, value = {str = ast_string.value}}
+            return ast_string.value
 
         case .Bool:
             ast_bool := cast(^Ast_Bool)expr
-            return Value{type = .Bool, value = {boolean = ast_bool.value}}
+            return ast_bool.value
 
         case .Nil:
-            ast_nil := cast(^Ast_Nil)expr
-            return Value{type = .Nil}
+            return nil
 
         case .Negate:
             ast_negate := cast(^Ast_Negate)expr
             operand := evaluate_expression(interp, ast_negate.operand)
 
-            if operand.type != .Number {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "The negation operator '-' can only be applied to numbers. This variable has type %v.", operand.type)
+            op, op_is_num := operand.(f32)
+
+            if !op_is_num {
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "The negation operator '-' can only be applied to a 'number'. Here, the argument has type '%v'.", get_value_type_name(operand))
             }
 
-            return Value{type = .Number, value = {number = -operand.value.number}}
+            return -op
 
         case .Plus:
             ast_plus := cast(^Ast_Plus)expr
             left := evaluate_expression(interp, ast_plus.left)
             right := evaluate_expression(interp, ast_plus.right)
 
-            if left.type == .Number && right.type == .Number {
-                return Value{type = .Number, value = {number = left.value.number + right.value.number}}
-            } else if left.type == .String && right.type == .String {
-                new_string := strings.concatenate([]string{left.value.str, right.value.str}, interp.strings_allocator)
-                return Value{type = .String, value = {str = new_string}}
-            } else {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'+' is defined only on two Strings or two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
+            #partial switch l in left {
+            case f32:
+                if r, r_is_num := right.(f32); r_is_num {
+                    return l + r
+                }
+
+            case string:
+                if r, r_is_string := right.(string); r_is_string {
+                    new_string := strings.concatenate([]string{l, r}, interp.strings_allocator)
+                    return new_string
+                }
             }
+
+            report_error(interp.file, expr.start_code_index, expr.end_code_index, "'+' can only be applied to two 'number's or two 'string's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
 
         case .Times:
             ast_times := cast(^Ast_Times)expr
@@ -234,23 +238,27 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             right := evaluate_expression(interp, ast_times.right)
 
             // @Incomplete: Implement multiplication for more types.
-            if left.type != .Number || right.type != .Number {
+            left_num, left_is_num := left.(f32)
+            right_num, right_is_num := right.(f32)
+            if !left_is_num || !right_is_num {
                 report_internal_error("Multiplication is only implemented for number types.")
             }
 
-            return Value{type = .Number, value = {number = left.value.number * right.value.number}}
+            return left_num * right_num
 
         case .Divide:
             ast_divide := cast(^Ast_Divide)expr
             left := evaluate_expression(interp, ast_divide.left)
             right := evaluate_expression(interp, ast_divide.right)
 
-            // @Incomplete: Implement multiplication for more types.
-            if left.type != .Number || right.type != .Number {
+            // @Incomplete: Implement division for more types.
+            left_num, left_is_num := left.(f32)
+            right_num, right_is_num := right.(f32)
+            if !left_is_num || !right_is_num {
                 report_internal_error("Division is only implemented for number types.")
             }
 
-            return Value{type = .Number, value = {number = left.value.number / right.value.number}}
+            return left_num / right_num
 
         case .Minus:
             ast_minus := cast(^Ast_Minus)expr
@@ -258,33 +266,38 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             right := evaluate_expression(interp, ast_minus.right)
 
             // @Incomplete: Implement subtraction for more types.
-            if left.type != .Number || right.type != .Number {
+            left_num, left_is_num := left.(f32)
+            right_num, right_is_num := right.(f32)
+            if !left_is_num || !right_is_num {
                 report_internal_error("Subtraction is only implemented for number types.")
             }
 
-            return Value{type = .Number, value = {number = left.value.number - right.value.number}}
+            return left_num - right_num
 
         case .Equal:
             ast_equal := cast(^Ast_Equal)expr
             left := evaluate_expression(interp, ast_equal.left)
             right := evaluate_expression(interp, ast_equal.right)
 
-            if left.type != right.type {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'==' is defined only when the two expressions are the same type. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
-            }
+            switch l in left {
+            case nil:
+                return right == nil
 
-            switch left.type {
-            case .Nil:
-                return Value{type = .Bool, value = {boolean = true}}
-            case .Number:
-                return Value{type = .Bool, value = {boolean = left.value.number == right.value.number}}
-            case .String:
-                return Value{type = .Bool, value = {boolean = left.value.str == right.value.str}}
-            case .Bool:
-                return Value{type = .Bool, value = {boolean = left.value.boolean == right.value.boolean}}
-            case .Function:
+            case f32:
+                r, r_is_num := right.(f32)
+                return r_is_num && l == r
+
+            case string:
+                r, r_is_string := right.(string)
+                return r_is_string && l == r
+
+            case bool:
+                r, r_is_bool := right.(bool)
+                return r_is_bool && l == r
+
+            case ^Ast_Function:
                 // @Audit: When does it make sense to compare functions equal?
-                return Value{type = .Bool, value = {boolean = false}}
+                return false
             }
 
         case .Less:
@@ -292,47 +305,52 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             left := evaluate_expression(interp, ast_less.left)
             right := evaluate_expression(interp, ast_less.right)
 
-            if left.type != .Number || right.type != .Number {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'<' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
+            left_num, left_is_num := left.(f32)
+            right_num, right_is_num := right.(f32)
+            if !left_is_num || !right_is_num {
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'<' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
-            return Value{type = .Bool, value = {boolean = left.value.number < right.value.number}}
+            return left_num < right_num
 
         case .LessEqual:
             ast_less_equal := cast(^Ast_LessEqual)expr
             left := evaluate_expression(interp, ast_less_equal.left)
             right := evaluate_expression(interp, ast_less_equal.right)
 
-            // @Incomplete: Implement subtraction for more types.
-            if left.type != .Number || right.type != .Number {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'<=' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
+            left_num, left_is_num := left.(f32)
+            right_num, right_is_num := right.(f32)
+            if !left_is_num || !right_is_num {
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'<=' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
-            return Value{type = .Bool, value = {boolean = left.value.number <= right.value.number}}
+            return left_num <= right_num
 
         case .Greater:
             ast_greater := cast(^Ast_Greater)expr
             left := evaluate_expression(interp, ast_greater.left)
             right := evaluate_expression(interp, ast_greater.right)
 
-            // @Incomplete: Implement subtraction for more types.
-            if left.type != .Number || right.type != .Number {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'>' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
+            left_num, left_is_num := left.(f32)
+            right_num, right_is_num := right.(f32)
+            if !left_is_num || !right_is_num {
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'>' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
-            return Value{type = .Bool, value = {boolean = left.value.number > right.value.number}}
+            return left_num > right_num
 
         case .GreaterEqual:
             ast_greater_equal := cast(^Ast_GreaterEqual)expr
             left := evaluate_expression(interp, ast_greater_equal.left)
             right := evaluate_expression(interp, ast_greater_equal.right)
 
-            // @Incomplete: Implement subtraction for more types.
-            if left.type != .Number || right.type != .Number {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'>=' is defined only on two Numbers. Here, the left operand has type %v and the right operand has type %v.", left.type, right.type)
+            left_num, left_is_num := left.(f32)
+            right_num, right_is_num := right.(f32)
+            if !left_is_num || !right_is_num {
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'>=' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
-            return Value{type = .Bool, value = {boolean = left.value.number >= right.value.number}}
+            return left_num >= right_num
 
         case .Var:
             ast_var := cast(^Ast_Var)expr
@@ -350,34 +368,33 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
         case .Call:
             ast_call := cast(^Ast_Call)expr
 
-            function := evaluate_expression(interp, ast_call.identifier_expr)
-            if function.type != .Function {
+            identifier_value := evaluate_expression(interp, ast_call.identifier_expr)
+            function, is_function := identifier_value.(^Ast_Function)
+            if !is_function {
                 report_error(interp.file, expr.start_code_index, expr.end_code_index, "Attempt to call an expression that is not a function.")
             }
 
-            function_ast := function.value.function
-
-            if len(ast_call.args) != len(function_ast.params) {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(function_ast.params), len(ast_call.args))
+            if len(ast_call.args) != len(function.params) {
+                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(function.params), len(ast_call.args))
             }
 
             old_env := interp.current_environment
 
             env := new(Environment)
-            env.parent = interp.scope_envs[function_ast.enclosing_scope]
+            env.parent = interp.scope_envs[function.enclosing_scope]
 
             // Bind the values of the arguments to the parameters in the body scope.
             for i in 0..<len(ast_call.args) {
                 value := evaluate_expression(interp, ast_call.args[i])
-                env.variables[function_ast.params[i]] = value
+                env.variables[function.params[i]] = value
 
                 // @Incomplete: What if the arguments are functions?
             }
 
             interp.current_environment = env
 
-            value := Value{}
-            for child in function_ast.body.children {
+            value: Value = nil
+            for child in function.body.children {
                 returned: bool
                 value, returned = evaluate(interp, child, true)
                 if returned {
@@ -410,8 +427,8 @@ resolve_identifier_value :: proc(interp: ^Interp, name: string) -> (value: Value
 
         function: ^Ast_Function
         function, found = env.functions[name]
-        if found do return Value{type = .Function, value = {function = function}}, found
+        if found do return function, found
     }
 
-    return Value{}, false
+    return nil, false
 }

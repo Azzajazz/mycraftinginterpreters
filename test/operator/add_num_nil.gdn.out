@@ -1,5 +1,5 @@
 #stderr
-b263:test/operator/add_num_nil.lox(1:1) Error: '+' is defined only on two Strings or two Numbers. Here, the left operand has type Number and the right operand has type Nil.
+b275:test/operator/add_num_nil.lox(1:1) Error: '+' can only be applied to two 'number's or two 'string's. Here, the left operand has type 'number' and the right operand has type 'nil'.
     1 + nil; // expect runtime error: Operands must be two numbers or two strings.
     ^^^^^^^
 
