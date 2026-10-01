@@ -30,6 +30,7 @@ Ast_Type :: enum {
     // Statements that are not expressions:
     VarDefinition,
     Scope,
+    If,
     Print,
     Return,
 
@@ -65,16 +66,12 @@ Ast :: struct {
     end_code_index: int,
 }
 
-Ast_Scope :: struct {
+Ast_Declaration :: struct {
     using ast: Ast,
-
-    parent: ^Ast_Scope,
-    // @Memory @Cleanup :DynamicArrayInArena
-    children: [dynamic]^Ast,
 }
 
 Ast_Function :: struct {
-    using ast: Ast,
+    using decl: Ast_Declaration,
 
     name: string,
     // @Memory @Cleanup :DynamicArrayInArena
@@ -88,17 +85,33 @@ Ast_Statement :: struct {
     using ast: Ast,
 }
 
-Ast_Print :: struct {
-    using stmt: Ast_Statement,
-
-    expr: ^Ast_Expression,
-}
-
 Ast_Var_Definition :: struct {
     using stmt: Ast_Statement,
 
     name: string,
     value: ^Ast_Expression,
+}
+
+Ast_Scope :: struct {
+    using stmt: Ast_Statement,
+
+    parent: ^Ast_Scope,
+    // @Memory @Cleanup :DynamicArrayInArena
+    children: [dynamic]^Ast,
+}
+
+Ast_If :: struct {
+    using stmt: Ast_Statement,
+
+    condition: ^Ast_Expression,
+    if_true: ^Ast_Statement,
+    if_false: ^Ast_Statement, // nil if there is no 'else'.
+}
+
+Ast_Print :: struct {
+    using stmt: Ast_Statement,
+
+    expr: ^Ast_Expression,
 }
 
 Ast_Return :: struct {
@@ -173,11 +186,14 @@ Ast_Call :: struct {
 }
 
 ast_types := map[typeid]Ast_Type {
-    Ast_Scope = .Scope,
     Ast_Function = .Function,
-    Ast_Print = .Print,
+
     Ast_Var_Definition = .VarDefinition,
+    Ast_Scope = .Scope,
+    Ast_If = .If,
+    Ast_Print = .Print,
     Ast_Return = .Return,
+
     Ast_Number = .Number,
     Ast_String = .String,
     Ast_Bool = .Bool,
@@ -247,19 +263,6 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     enum_field, _ := reflect.enum_name_from_value(ast.type)
     fmt.printfln("%v(", enum_field)
     switch ast.type {
-    case .Scope:
-        scope := cast(^Ast_Scope)ast
-        dump_indent(indent)
-        fmt.println("  children = [")
-
-        for child in scope.children {
-            dump_indent(indent + 2)
-            dump_ast(child, indent + 2)
-        }
-
-        dump_indent(indent)
-        fmt.println("  ]")
-
     case .Function:
         function := cast(^Ast_Function)ast
 
@@ -282,14 +285,6 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 
         dump_ast(function.body, indent + 1)
 
-    case .Print:
-        print := cast(^Ast_Print)ast
-
-        dump_indent(indent)
-        fmt.print("  expr = ")
-
-        dump_ast(print.expr, indent + 1)
-
     case .VarDefinition:
         var_def := cast(^Ast_Var_Definition)ast
 
@@ -300,6 +295,48 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         fmt.print("  value = ")
 
         dump_ast(var_def.value, indent + 1)
+
+    case .Scope:
+        scope := cast(^Ast_Scope)ast
+
+        dump_indent(indent)
+        fmt.println("  children = [")
+
+        for child in scope.children {
+            dump_indent(indent + 2)
+            dump_ast(child, indent + 2)
+        }
+
+        dump_indent(indent)
+        fmt.println("  ]")
+
+    case .If:
+        ast_if := cast(^Ast_If)ast
+
+        dump_indent(indent)
+        fmt.print("  condition = ")
+
+        dump_ast(ast_if.condition, indent + 1)
+
+        dump_indent(indent)
+        fmt.print("  if_true = ")
+        
+        dump_ast(ast_if.if_true, indent + 1)
+
+        if ast_if.if_false != nil {
+            dump_indent(indent)
+            fmt.print("  if_false = ")
+            
+            dump_ast(ast_if.if_false, indent + 1)
+        }
+
+    case .Print:
+        print := cast(^Ast_Print)ast
+
+        dump_indent(indent)
+        fmt.print("  expr = ")
+
+        dump_ast(print.expr, indent + 1)
 
     case .Return:
         ast_return := cast(^Ast_Return)ast
@@ -577,7 +614,7 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
     consume_token(parser) // Consume the right paren.
 }
 
-parse_scope :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
+parse_scope :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_Scope {
     token := consume_token(parser) // Consume the left brace.
     assert(token.type == .LeftBrace)
 
@@ -606,15 +643,40 @@ parse_scope :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
     return scope
 }
 
-parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
-    ast: ^Ast
+parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_Statement {
+    ast: ^Ast_Statement
 
     token := next_token(parser)
 
     #partial switch token.type {
         case .LeftBrace:
             scope := parse_scope(parser, return_is_valid)
-            return scope // Early return here since we don't need a terminating semicolon.
+            // Early return here since we don't need a terminating semicolon.
+            return scope
+
+        case .If:
+            consume_token(parser) // Consume the 'if' keyword.
+
+            paren := consume_token(parser)
+            if paren.type != .LeftParen {
+                report_error(parser.file, paren.code_index, paren.code_index + get_token_length(parser.file, paren), "If conditions must be wrapped in parentheses. Expected  '(', but got '%v'.", get_token_code(parser.file, paren))
+            }
+
+            condition := parse_expression(parser)
+
+            paren = consume_token(parser)
+            if paren.type != .RightParen {
+                report_error(parser.file, paren.code_index, paren.code_index + get_token_length(parser.file, paren), "Expected  ')', but got '%v'.", get_token_code(parser.file, paren))
+            }
+
+            if_true := parse_statement(parser)
+
+            ast_if := new_ast_node(Ast_If, token.code_index, if_true.end_code_index, parser)
+            ast_if.condition = condition
+            ast_if.if_true = if_true
+
+            // Early return here since we don't need a terminating semicolon.
+            return ast_if
 
         case .Print:
             consume_token(parser) // Consume the 'print' keyword.
@@ -623,7 +685,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
             print := new_ast_node(Ast_Print, token.code_index, expr.end_code_index, parser)
             print.expr = expr
 
-            ast = cast(^Ast)print
+            ast = print
 
         case .Var:
             consume_token(parser) // Consume the 'var' keyword.
@@ -642,7 +704,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
             var_def.name = name.value
             var_def.value = value
 
-            ast = cast(^Ast)var_def
+            ast = var_def
 
         case .Return:
             consume_token(parser)
@@ -655,10 +717,10 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
             ast_return := new_ast_node(Ast_Return, token.code_index, expr.end_code_index, parser)
             ast_return.expr = expr
 
-            ast = cast(^Ast)ast_return
+            ast = ast_return
 
         case:
-            ast = cast(^Ast)parse_expression(parser)
+            ast = parse_expression(parser)
     }
 
     expect_token(parser, .Semicolon, "Statements must be followed by a ';'.")

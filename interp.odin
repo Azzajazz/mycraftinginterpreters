@@ -115,6 +115,12 @@ report_error :: proc(file: ^LoxFile, span_start, span_end: int, format: string, 
 
 evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (return_value: Value, did_return: bool) {
     #partial switch ast.type {
+    case .Function:
+        function := cast(^Ast_Function)ast
+
+        interp.current_environment.functions[function.name] = function
+        interp.scope_envs[function.enclosing_scope] = interp.current_environment
+
     case .Scope:
         scope := cast(^Ast_Scope)ast
 
@@ -132,11 +138,25 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
             if did_return do return return_value, did_return
         }
 
-    case .Function:
-        function := cast(^Ast_Function)ast
+    case .If:
+        ast_if := cast(^Ast_If)ast
 
-        interp.current_environment.functions[function.name] = function
-        interp.scope_envs[function.enclosing_scope] = interp.current_environment
+        condition_value := evaluate_expression(interp, ast_if.condition)
+
+        condition_is_true := false
+        #partial switch v in condition_value {
+        case bool:
+            condition_is_true = v
+        case:
+            // @Incomplete. 0, "", nil, etc are falsy. See tests.
+            condition_is_true = false
+        }
+
+        if condition_is_true {
+            evaluate(interp, ast_if.if_true)
+        } else if ast_if.if_false != nil {
+            evaluate(interp, ast_if.if_false)
+        }
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
