@@ -58,26 +58,31 @@ is_in_global_scope :: proc(interp: ^Interp) -> bool {
     return interp.current_environment.parent == nil
 }
 
+Lexical_Span :: struct {
+    start: int,
+    end: int,
+}
+
 // :SpansForErrors
 // @Cleanup: Maybe introduce some concept of spans?
-report_error :: proc(file: ^LoxFile, span_start, span_end: int, format: string, args: ..any) {
-    line_number, char_number := get_line_and_char(file.code, span_start)
+report_error :: proc(file: ^LoxFile, span: Lexical_Span, format: string, args: ..any) {
+    line_number, char_number := get_line_and_char(file.code, span.start)
     fmt.eprintf("%v(%v:%v) Error: ", file.path, line_number + 1, char_number + 1)
     fmt.eprintfln(format, ..args)
 
     // @Cleanup: Ewwwwwwww.
-    first_line_start_index := span_start
+    first_line_start_index := span.start
     for first_line_start_index > 0 && file.code[first_line_start_index - 1] != '\n' {
         first_line_start_index -= 1
     }
 
-    last_line_end_index := span_end
+    last_line_end_index := span.end
     for last_line_end_index < len(file.code) && file.code[last_line_end_index] != '\n' {
         last_line_end_index += 1
     }
 
     code_span := file.code[first_line_start_index:last_line_end_index]
-    code_index_cursor := span_start
+    code_index_cursor := span.start
     
     // First line.
     line, line_ok := strings.split_lines_iterator(&code_span)
@@ -86,7 +91,7 @@ report_error :: proc(file: ^LoxFile, span_start, span_end: int, format: string, 
     fmt.eprint("    ")
 
     padding := code_index_cursor - first_line_start_index
-    end_index_relative_to_line := span_end - first_line_start_index
+    end_index_relative_to_line := span.end - first_line_start_index
     arrows := min(len(line), end_index_relative_to_line) - padding
     for _ in 0..<padding {
         fmt.eprint(" ")
@@ -102,7 +107,7 @@ report_error :: proc(file: ^LoxFile, span_start, span_end: int, format: string, 
     for line in strings.split_lines_iterator(&code_span) {
         fmt.eprintfln("    %v", line)
         fmt.eprint("    ")
-        for _ in 0..<min(span_end - code_index_cursor, len(line)) {
+        for _ in 0..<min(span.end - code_index_cursor, len(line)) {
             fmt.eprint("^")
         }
         fmt.eprintln()
@@ -176,7 +181,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
         value := evaluate_expression(interp, ast_var_def.value, ast_var_def.name)
 
         if !is_in_global_scope(interp) && ast_var_def.name in interp.current_environment.variables {
-            report_error(interp.file, ast.start_code_index, ast.end_code_index, "Cannot redefine a variable in a scope that is not the global scope.")
+            report_error(interp.file, ast.span, "Cannot redefine a variable in a scope that is not the global scope.")
         } else {
             interp.current_environment.variables[ast_var_def.name] = value
         }
@@ -188,7 +193,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
             expr := evaluate_expression(interp, ast_return.expr)
             return expr, true
         } else {
-            report_error(interp.file, ast.start_code_index, ast.end_code_index, "Return can only be used inside the body of a function.")
+            report_error(interp.file, ast.span, "Return can only be used inside the body of a function.")
         }
 
     case:
@@ -228,7 +233,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             op, op_is_num := operand.(f32)
 
             if !op_is_num {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "The negation operator '-' can only be applied to a 'number'. Here, the argument has type '%v'.", get_value_type_name(operand))
+                report_error(interp.file, expr.span, "The negation operator '-' can only be applied to a 'number'. Here, the argument has type '%v'.", get_value_type_name(operand))
             }
 
             return -op
@@ -251,7 +256,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 }
             }
 
-            report_error(interp.file, expr.start_code_index, expr.end_code_index, "'+' can only be applied to two 'number's or two 'string's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
+            report_error(interp.file, expr.span, "'+' can only be applied to two 'number's or two 'string's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
 
         case .Times:
             ast_times := cast(^Ast_Times)expr
@@ -329,7 +334,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             left_num, left_is_num := left.(f32)
             right_num, right_is_num := right.(f32)
             if !left_is_num || !right_is_num {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'<' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
+                report_error(interp.file, expr.span, "'<' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
             return left_num < right_num
@@ -342,7 +347,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             left_num, left_is_num := left.(f32)
             right_num, right_is_num := right.(f32)
             if !left_is_num || !right_is_num {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'<=' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
+                report_error(interp.file, expr.span, "'<=' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
             return left_num <= right_num
@@ -355,7 +360,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             left_num, left_is_num := left.(f32)
             right_num, right_is_num := right.(f32)
             if !left_is_num || !right_is_num {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'>' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
+                report_error(interp.file, expr.span, "'>' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
             return left_num > right_num
@@ -368,7 +373,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             left_num, left_is_num := left.(f32)
             right_num, right_is_num := right.(f32)
             if !left_is_num || !right_is_num {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "'>=' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
+                report_error(interp.file, expr.span, "'>=' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
             return left_num >= right_num
@@ -376,12 +381,12 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
         case .Var:
             ast_var := cast(^Ast_Var)expr
             if !is_in_global_scope(interp) && ast_var.name == initialized_name {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Cannot use a local variable in its own initializer.")
+                report_error(interp.file, expr.span, "Cannot use a local variable in its own initializer.")
             } else {
                 value, value_found := resolve_identifier_value(interp, ast_var.name)
                 
                 if !value_found {
-                    report_error(interp.file, expr.start_code_index, expr.end_code_index, "Variable %v was used, but it hasn't been defined.", ast_var.name)
+                    report_error(interp.file, expr.span, "Variable %v was used, but it hasn't been defined.", ast_var.name)
                 }
                 return value
             }
@@ -392,11 +397,11 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             identifier_value := evaluate_expression(interp, ast_call.identifier_expr)
             function, is_function := identifier_value.(^Ast_Function)
             if !is_function {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Attempt to call an expression that is not a function.")
+                report_error(interp.file, expr.span, "Attempt to call an expression that is not a function.")
             }
 
             if len(ast_call.args) != len(function.params) {
-                report_error(interp.file, expr.start_code_index, expr.end_code_index, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(function.params), len(ast_call.args))
+                report_error(interp.file, expr.span, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(function.params), len(ast_call.args))
             }
 
             old_env := interp.current_environment

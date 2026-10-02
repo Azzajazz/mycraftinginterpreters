@@ -62,8 +62,7 @@ Ast :: struct {
 
     file_name: string,
 
-    start_code_index: int,
-    end_code_index: int,
+    span: Lexical_Span,
 }
 
 Ast_Declaration :: struct {
@@ -218,15 +217,13 @@ is_expression :: proc(ast: ^Ast) -> bool {
     return cast(int)ast.type >= expression_min
 }
 
-new_ast_node :: proc($T: typeid, start_code_index, end_code_index: int, parser: ^Parser) -> ^T {
+new_ast_node :: proc($T: typeid, span_start, span_end: int, parser: ^Parser) -> ^T {
     ast := new(T, parser.ast_allocator)
     ast.type = ast_types[T]
 
     ast.file_name = parser.file.path
 
-    ast.start_code_index = start_code_index
-    ast.end_code_index = end_code_index
-
+    ast.span = Lexical_Span{span_start, span_end}
     
     // @Memory @Cleanup :DynamicArrayInArena
     // I don't really want to append using a linear allocator,
@@ -520,7 +517,7 @@ parse_declaration_or_statement :: proc(parser: ^Parser, return_is_valid := false
         token = next_token(parser)
         if token.type != .LeftBrace {
             // @Crash @Cleanup: report_error exits the program. We should recover and continue parsing instead.
-            report_error(parser.file, token.code_index, token.code_index + get_token_length(parser.file, token), "A function body must be a scope. Expected '{{', but got '%v'.", get_token_code(parser.file, token))
+            report_error(parser.file, get_token_span(parser.file, token), "A function body must be a scope. Expected '{{', but got '%v'.", get_token_code(parser.file, token))
         }
         body := parse_scope(parser, true)
 
@@ -554,7 +551,7 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
         token = next_token(parser)
         for token.type != .RightParen {
             if token.type == .Eof {
-                report_error(parser.file, ast.start_code_index, ast.end_code_index, "Reached end of file while parsing a parameter list.")
+                report_error(parser.file, ast.span, "Reached end of file while parsing a parameter list.")
             }
 
             _, parse_ok = expect_token(parser, .Comma, "Function parameters must be separated with a ','")
@@ -570,9 +567,7 @@ parse_parameter_list :: proc(parser: ^Parser, ast: ^Ast, params: ^[dynamic]strin
     consume_token(parser) // Consume the right paren.
 }
 
-// :SpansForErrors
-// @Cleanup: Introduce spans.
-parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[dynamic]^Ast_Expression) {
+parse_argument_list :: proc(parser: ^Parser, span: Lexical_Span, args: ^[dynamic]^Ast_Expression) {
     parse_ok := true
     defer if !parse_ok {
         skip_to_token(parser, .RightParen)
@@ -587,7 +582,7 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
         expr := parse_expression(parser)
         if expr == nil {
             // @Cleanup: Recoverable parsing errors.
-            report_error(parser.file, span_start, span_end, "Arguments to functions must be expressions.")
+            report_error(parser.file, span, "Arguments to functions must be expressions.")
         }
         append(args, expr)
 
@@ -595,7 +590,7 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
         for token.type != .RightParen {
             if token.type == .Eof {
                 // @Cleanup: Recoverable parsing errors.
-                report_error(parser.file, span_start, span_end, "Reached end of file while parsing a parameter list.")
+                report_error(parser.file, span, "Reached end of file while parsing a parameter list.")
             }
 
             _, token_ok := expect_token(parser, .Comma, "Arguments in function calls must be separated by ','.") 
@@ -604,7 +599,7 @@ parse_argument_list :: proc(parser: ^Parser, span_start, span_end: int, args: ^[
             expr := parse_expression(parser)
             if expr == nil {
                 // @Cleanup: Recoverable parsing errors.
-                report_error(parser.file, span_start, span_end, "Arguments to functions must be expressions.")
+                report_error(parser.file, span, "Arguments to functions must be expressions.")
             }
             append(args, expr)
 
@@ -629,7 +624,7 @@ parse_scope :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_Scope {
             // @Hack @Cleanup: We're using `scope` as the AST node here, for lack of something better.
             // This probably means we need a more general report_error function, or
             // at least separate report_interp_error and report_parse_error.
-            report_error(parser.file, scope.start_code_index, scope.end_code_index, "Reached end of file while parsing a scope.")
+            report_error(parser.file, scope.span, "Reached end of file while parsing a scope.")
         }
 
         decl := parse_declaration_or_statement(parser, return_is_valid)
@@ -659,21 +654,21 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
 
             paren := consume_token(parser)
             if paren.type != .LeftParen {
-                report_error(parser.file, paren.code_index, paren.code_index + get_token_length(parser.file, paren), "If conditions must be wrapped in parentheses. Expected '(', but got '%v'.", get_token_code(parser.file, paren))
+                report_error(parser.file, get_token_span(parser.file, paren), "If conditions must be wrapped in parentheses. Expected '(', but got '%v'.", get_token_code(parser.file, paren))
             }
 
             condition := parse_expression(parser)
 
             paren = consume_token(parser)
             if paren.type != .RightParen {
-                report_error(parser.file, paren.code_index, paren.code_index + get_token_length(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
+                report_error(parser.file, get_token_span(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
             }
 
             // @Cleanup: Not sure if this makes sense, but since variable definitions are
             // handled by parse_statement as valid, we need a check here.
             maybe_var := next_token(parser)
             if maybe_var.type == .Var {
-                report_error(parser.file, maybe_var.code_index, maybe_var.code_index + get_token_length(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
+                report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
             }
 
             if_true := parse_statement(parser)
@@ -687,13 +682,13 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
                 // handled by parse_statement as valid, we need a check here.
                 maybe_var = next_token(parser)
                 if maybe_var.type == .Var {
-                    report_error(parser.file, maybe_var.code_index, maybe_var.code_index + get_token_length(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
+                    report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
                 }
 
                 if_false = parse_statement(parser)
             }
 
-            ast_if := new_ast_node(Ast_If, token.code_index, if_true.end_code_index, parser)
+            ast_if := new_ast_node(Ast_If, token.code_index, if_true.span.end, parser)
             ast_if.condition = condition
             ast_if.if_true = if_true
             ast_if.if_false = if_false
@@ -705,7 +700,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
             consume_token(parser) // Consume the 'print' keyword.
             expr := parse_expression(parser)
 
-            print := new_ast_node(Ast_Print, token.code_index, expr.end_code_index, parser)
+            print := new_ast_node(Ast_Print, token.code_index, expr.span.end, parser)
             print.expr = expr
 
             ast = print
@@ -723,7 +718,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
                 value = cast(^Ast_Expression)new_ast_node(Ast_Nil, name.code_index,  name.code_index + len(name.value), parser)
             }
 
-            var_def := new_ast_node(Ast_Var_Definition, token.code_index, value.end_code_index, parser)
+            var_def := new_ast_node(Ast_Var_Definition, token.code_index, value.span.end, parser)
             var_def.name = name.value
             var_def.value = value
 
@@ -734,10 +729,10 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
             expr := parse_expression(parser)
 
             if !return_is_valid {
-                report_error(parser.file, token.code_index, expr.end_code_index, "Return statements can only be used in function scope.")
+                report_error(parser.file, Lexical_Span{token.code_index, expr.span.end}, "Return statements can only be used in function scope.")
             }
 
-            ast_return := new_ast_node(Ast_Return, token.code_index, expr.end_code_index, parser)
+            ast_return := new_ast_node(Ast_Return, token.code_index, expr.span.end, parser)
             ast_return.expr = expr
 
             ast = ast_return
@@ -782,23 +777,23 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
         ast_operator: ^Ast_Binary_Operator
         #partial switch maybe_operator.type {
         case .Plus:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Plus, left.span.start, right.span.end, parser)
         case .Minus:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Minus, left.span.start, right.span.end, parser)
         case .Star:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, left.span.start, right.span.end, parser)
         case .Slash:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Divide, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Divide, left.span.start, right.span.end, parser)
         case .EqualEqual:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Equal, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Equal, left.span.start, right.span.end, parser)
         case .Less:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Less, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Less, left.span.start, right.span.end, parser)
         case .LessEqual:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_LessEqual, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_LessEqual, left.span.start, right.span.end, parser)
         case .Greater:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Greater, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Greater, left.span.start, right.span.end, parser)
         case .GreaterEqual:
-            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_GreaterEqual, left.start_code_index, right.end_code_index, parser)
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_GreaterEqual, left.span.start, right.span.end, parser)
         }
 
         assert(ast_operator != nil)
@@ -868,7 +863,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     }
 
     if expr == nil {
-        report_error(parser.file, token.code_index, token.code_index + get_token_length(parser.file, token), "Expected an expression, but got '%v'.", get_token_code(parser.file, token))
+        report_error(parser.file, get_token_span(parser.file, token), "Expected an expression, but got '%v'.", get_token_code(parser.file, token))
     }
 
     // Since functions are first-class in Lox, a good number of arbitrary expressions 
@@ -884,11 +879,10 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     for next.type == .LeftParen {
         call := new_ast_node(Ast_Call, token.code_index, 0 /* To be filled in later */, parser)
 
-        token_length := get_token_length(parser.file, token)
-        parse_argument_list(parser, token.code_index, token.code_index + token_length, &call.args)
+        parse_argument_list(parser, get_token_span(parser.file, token), &call.args)
 
         // @Temporary @Hack.
-        call.end_code_index = parser.tokens[parser.token_index].code_index
+        call.span.end = parser.tokens[parser.token_index].code_index
         call.identifier_expr = expr
 
         expr = cast(^Ast_Expression)call
@@ -896,7 +890,7 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
     }
 
     if is_negate {
-        negate := new_ast_node(Ast_Negate, token.code_index, expr.end_code_index, parser)
+        negate := new_ast_node(Ast_Negate, token.code_index, expr.span.end, parser)
         negate.operand = expr
         return negate
     } else {

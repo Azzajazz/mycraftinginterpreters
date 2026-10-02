@@ -7,10 +7,6 @@ import "core:strings"
 import "core:strconv"
 
 Token_Type :: enum {
-    // Used for tokens that didn't lex properly. This is only used for
-    // parsing errors; it should never reach the backend.
-    Invalid,
-
     LeftParen,
     RightParen,
     LeftBrace,
@@ -80,12 +76,14 @@ get_line_and_char :: proc(code: string, code_index: int) -> (line: int, char: in
     return line, char
 }
 
+get_token_span :: proc(file: ^LoxFile, token: Token) -> Lexical_Span {
+    length := get_token_length(file, token)
+    span := Lexical_Span{start = token.code_index, end = token.code_index + length}
+    return span
+}
+
 // @Performance: Some tokens have predefined lengths (e.g. keywords).
 get_token_length :: proc(file: ^LoxFile, token: Token) -> int {
-    if token.type == .Invalid {
-        return 1
-    }
-
     lexer := Lexer{file = file}
     lexer.code_index = token.code_index
 

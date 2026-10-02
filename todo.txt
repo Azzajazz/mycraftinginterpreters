@@ -1,14 +1,13 @@
 This is just a list to write down stuff to do as I come across it.
 
-- if/else
+!!! Lexical spans in general.
+    // :SpansForErrors
 
 ----------------------------------------------------------------------
 
 - while
 - for
 
-!!! Lexical spans in general.
-    // :SpansForErrors
 
 - assignment
 
