@@ -1,0 +1,11 @@
+#stderr
+b0:
+#stdout
+b23:false
+nil
+true
+0
+empty
+
+#exit_code
+i:0

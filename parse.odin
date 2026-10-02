@@ -671,9 +671,18 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
 
             if_true := parse_statement(parser)
 
+            if_false: ^Ast_Statement
+
+            maybe_else := next_token(parser)
+            if maybe_else.type == .Else {
+                consume_token(parser) // Consume the 'else' keyword.
+                if_false = parse_statement(parser)
+            }
+
             ast_if := new_ast_node(Ast_If, token.code_index, if_true.end_code_index, parser)
             ast_if.condition = condition
             ast_if.if_true = if_true
+            ast_if.if_false = if_false
 
             // Early return here since we don't need a terminating semicolon.
             return ast_if
@@ -720,6 +729,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
             ast = ast_return
 
         case:
+            fmt.println("Expression!")
             ast = parse_expression(parser)
     }
 
@@ -841,11 +851,6 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
             ast := new_ast_node(Ast_Var, token.code_index, token.code_index + len(token.value),  parser)
             ast.name = token.value
             expr = cast(^Ast_Expression)ast
-
-            /*
-        case:
-            report_internal_error("Unsupported token type %v when parsing an expression leaf.", token.type)
-            */
         }
     }
 

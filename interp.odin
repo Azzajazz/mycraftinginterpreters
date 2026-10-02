@@ -143,13 +143,14 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
 
         condition_value := evaluate_expression(interp, ast_if.condition)
 
-        condition_is_true := false
+        condition_is_true: bool
         #partial switch v in condition_value {
         case bool:
             condition_is_true = v
-        case:
-            // @Incomplete. 0, "", nil, etc are falsy. See tests.
+        case nil:
             condition_is_true = false
+        case:
+            condition_is_true = true
         }
 
         if condition_is_true {
