@@ -1,0 +1,9 @@
+#stdout
+b0:
+#exit_code
+i:1
+#stderr
+b158:test/function/local_recursion.lox(3:16) Error: Return statements can only be used in function scope.
+        if (n < 2) return n;
+                   ^^^^^^^^
+

@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b23:test/if/var_in_else.lox
+lend

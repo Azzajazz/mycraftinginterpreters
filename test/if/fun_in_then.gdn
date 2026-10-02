@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b23:test/if/fun_in_then.lox
+lend

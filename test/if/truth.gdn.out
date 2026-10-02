@@ -1,5 +1,3 @@
-#stderr
-b0:
 #stdout
 b23:false
 nil
@@ -9,3 +7,5 @@ empty
 
 #exit_code
 i:0
+#stderr
+b0:

@@ -1,8 +1,8 @@
-#stderr
-b0:
 #stdout
 b12:outer
 inner
 
 #exit_code
 i:0
+#stderr
+b0:

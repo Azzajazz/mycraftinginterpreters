@@ -1,10 +1,10 @@
+#stdout
+b0:
+#exit_code
+i:1
 #stderr
 b123:test/variable/use_nil_as_var.lox(2:5) Error: Variable names must be valid identifiers.
     var nil = "value";
         ^^^
 
 
-#stdout
-b0:
-#exit_code
-i:1

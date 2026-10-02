@@ -1,0 +1,9 @@
+#stdout
+b0:
+#exit_code
+i:1
+#stderr
+b143:test/if/fun_in_else.lox(2:22) Error: Expected an expression, but got 'fun'.
+    if (true) "ok"; else fun foo() {}
+                         ^^^
+

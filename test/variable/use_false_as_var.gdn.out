@@ -1,10 +1,10 @@
+#stdout
+b0:
+#exit_code
+i:1
 #stderr
 b129:test/variable/use_false_as_var.lox(2:5) Error: Variable names must be valid identifiers.
     var false = "value";
         ^^^^^
 
 
-#stdout
-b0:
-#exit_code
-i:1

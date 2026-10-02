@@ -659,14 +659,21 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
 
             paren := consume_token(parser)
             if paren.type != .LeftParen {
-                report_error(parser.file, paren.code_index, paren.code_index + get_token_length(parser.file, paren), "If conditions must be wrapped in parentheses. Expected  '(', but got '%v'.", get_token_code(parser.file, paren))
+                report_error(parser.file, paren.code_index, paren.code_index + get_token_length(parser.file, paren), "If conditions must be wrapped in parentheses. Expected '(', but got '%v'.", get_token_code(parser.file, paren))
             }
 
             condition := parse_expression(parser)
 
             paren = consume_token(parser)
             if paren.type != .RightParen {
-                report_error(parser.file, paren.code_index, paren.code_index + get_token_length(parser.file, paren), "Expected  ')', but got '%v'.", get_token_code(parser.file, paren))
+                report_error(parser.file, paren.code_index, paren.code_index + get_token_length(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
+            }
+
+            // @Cleanup: Not sure if this makes sense, but since variable definitions are
+            // handled by parse_statement as valid, we need a check here.
+            maybe_var := next_token(parser)
+            if maybe_var.type == .Var {
+                report_error(parser.file, maybe_var.code_index, maybe_var.code_index + get_token_length(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
             }
 
             if_true := parse_statement(parser)
@@ -676,6 +683,13 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
             maybe_else := next_token(parser)
             if maybe_else.type == .Else {
                 consume_token(parser) // Consume the 'else' keyword.
+                // @Cleanup: Not sure if this makes sense, but since variable definitions are
+                // handled by parse_statement as valid, we need a check here.
+                maybe_var = next_token(parser)
+                if maybe_var.type == .Var {
+                    report_error(parser.file, maybe_var.code_index, maybe_var.code_index + get_token_length(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
+                }
+
                 if_false = parse_statement(parser)
             }
 
@@ -729,7 +743,6 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
             ast = ast_return
 
         case:
-            fmt.println("Expression!")
             ast = parse_expression(parser)
     }
 
@@ -852,6 +865,10 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
             ast.name = token.value
             expr = cast(^Ast_Expression)ast
         }
+    }
+
+    if expr == nil {
+        report_error(parser.file, token.code_index, token.code_index + get_token_length(parser.file, token), "Expected an expression, but got '%v'.", get_token_code(parser.file, token))
     }
 
     // Since functions are first-class in Lox, a good number of arbitrary expressions 

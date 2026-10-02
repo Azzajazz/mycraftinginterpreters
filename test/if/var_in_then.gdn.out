@@ -1,0 +1,9 @@
+#stdout
+b0:
+#exit_code
+i:1
+#stderr
+b117:test/if/var_in_then.lox(2:11) Error: Expected an expression, but got 'var'.
+    if (true) var foo;
+              ^^^
+
