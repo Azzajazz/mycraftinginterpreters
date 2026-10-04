@@ -158,11 +158,15 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
             condition_is_true = true
         }
 
+        value: Value
+        returned: bool
         if condition_is_true {
-            evaluate(interp, ast_if.if_true)
+            value, returned = evaluate(interp, ast_if.if_true, return_is_valid)
+
         } else if ast_if.if_false != nil {
-            evaluate(interp, ast_if.if_false)
+            value, returned = evaluate(interp, ast_if.if_false, return_is_valid)
         }
+        if returned do return value, returned
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
@@ -194,6 +198,16 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
             return expr, true
         } else {
             report_error(interp.file, ast.span, "Return can only be used inside the body of a function.")
+        }
+
+    case .Assign:
+        ast_assign := cast(^Ast_Assign)ast
+
+        value := evaluate_expression(interp, ast_assign.value)
+        was_set := set_value(interp, ast_assign.name, value)
+
+        if !was_set {
+            report_error(interp.file, ast.span, "Attempt to assign to variable '%v', but it wasn't declared yet.", ast_assign.name)
         }
 
     case:
@@ -457,4 +471,19 @@ resolve_identifier_value :: proc(interp: ^Interp, name: string) -> (value: Value
     }
 
     return nil, false
+}
+
+set_value :: proc(interp: ^Interp, name: string, value: Value) -> bool {
+    env := interp.current_environment
+
+    for env != nil {
+        defer env = env.parent
+
+        if name in env.variables {
+            env.variables[name] = value
+            return true
+        }
+    }
+
+    return false
 }

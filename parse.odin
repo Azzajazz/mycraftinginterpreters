@@ -35,6 +35,8 @@ Ast_Type :: enum {
     Return,
 
     // Expressions:
+    Assign,
+
     Number,
     String,
     Bool,
@@ -123,6 +125,13 @@ Ast_Expression :: struct {
     using stmt: Ast_Statement,
 }
 
+Ast_Assign :: struct {
+    using expr: Ast_Expression,
+
+    name: string,
+    value: ^Ast_Expression,
+}
+
 Ast_Number :: struct {
     using expr: Ast_Expression,
 
@@ -193,6 +202,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Print = .Print,
     Ast_Return = .Return,
 
+    Ast_Assign = .Assign,
     Ast_Number = .Number,
     Ast_String = .String,
     Ast_Bool = .Bool,
@@ -342,6 +352,18 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         fmt.print("  expr = ")
 
         dump_ast(ast_return.expr, indent + 1)
+
+    case .Assign:
+        ast_assign := cast(^Ast_Assign)ast
+
+        dump_indent(indent)
+        fmt.printfln("  name = %v", ast_assign.name)
+
+        dump_indent(indent)
+        fmt.print("  value = ")
+
+        dump_ast(ast_assign.value, indent + 1)
+
 
     case .Number:
         number := cast(^Ast_Number)ast
@@ -671,7 +693,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
                 report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
             }
 
-            if_true := parse_statement(parser)
+            if_true := parse_statement(parser, return_is_valid)
 
             if_false: ^Ast_Statement
 
@@ -685,7 +707,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
                     report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
                 }
 
-                if_false = parse_statement(parser)
+                if_false = parse_statement(parser, return_is_valid)
             }
 
             ast_if := new_ast_node(Ast_If, token.code_index, if_true.span.end, parser)
@@ -736,6 +758,25 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
             ast_return.expr = expr
 
             ast = ast_return
+
+        case .Identifier:
+            next := parser.tokens[parser.token_index + 1]
+            // @Incomplete: Assignment only handles identifier = expr syntax and not general lvalues.
+            if next.type == .Equal {
+                // Consume the name and the '='.
+                consume_token(parser)
+                consume_token(parser)
+
+                value := parse_expression(parser)
+
+                ast_assign := new_ast_node(Ast_Assign, token.code_index, value.span.end, parser)
+                ast_assign.name = token.value
+                ast_assign.value = value
+
+                ast = ast_assign
+            } else {
+                ast = parse_expression(parser)
+            }
 
         case:
             ast = parse_expression(parser)
