@@ -26,6 +26,10 @@ delete_analyzer :: proc(analyzer: ^Analyzer) {
     delete(analyzer.scope_infos)
 }
 
+get_current_scope_info :: proc(analyzer: ^Analyzer) -> ^Scope_Info {
+    return &analyzer.scope_infos[len(analyzer.scope_infos) - 1]
+}
+
 add_scope_info :: proc(analyzer: ^Analyzer) {
     resize(&analyzer.scope_infos, len(analyzer.scope_infos) + 1)
 }
@@ -36,12 +40,12 @@ remove_scope_info :: proc(analyzer: ^Analyzer) {
 }
 
 add_function_definition :: proc(analyzer: ^Analyzer, name: string) {
-    info := &analyzer.scope_infos[len(analyzer.scope_infos) - 1]
+    info := get_current_scope_info(analyzer)
     append(&info.defined_functions, name)
 }
 
 add_variable_definition :: proc(analyzer: ^Analyzer, name: string) {
-    info := &analyzer.scope_infos[len(analyzer.scope_infos) - 1]
+    info := get_current_scope_info(analyzer)
     append(&info.defined_variables, name)
 }
 
@@ -76,6 +80,17 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
 
     case .VarDefinition:
         ast_vardef := cast(^Ast_Var_Definition)ast
+
+        if len(analyzer.scope_infos) > 1 {
+            // We are not in global scope, so redefinition is an error.
+            info := get_current_scope_info(analyzer)
+
+            for def in info.defined_variables {
+                if def == ast_vardef.name {
+                    report_error(analyzer.file, ast.span, "Cannot redefine a variable in a scope that is not the global scope.")
+                }
+            }
+        }
 
         add_variable_definition(analyzer, ast_vardef.name)
 

@@ -183,12 +183,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
     case .VarDefinition:
         ast_var_def := cast(^Ast_Var_Definition)ast
         value := evaluate_expression(interp, ast_var_def.value, ast_var_def.name)
-
-        if !is_in_global_scope(interp) && ast_var_def.name in interp.current_environment.variables {
-            report_error(interp.file, ast.span, "Cannot redefine a variable in a scope that is not the global scope.")
-        } else {
-            interp.current_environment.variables[ast_var_def.name] = value
-        }
+        interp.current_environment.variables[ast_var_def.name] = value
 
     case .Return:
         ast_return := cast(^Ast_Return)ast
@@ -197,6 +192,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
             expr := evaluate_expression(interp, ast_return.expr)
             return expr, true
         } else {
+            // :SemanticAnalysisError
             report_error(interp.file, ast.span, "Return can only be used inside the body of a function.")
         }
 
@@ -207,6 +203,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
         was_set := set_value(interp, ast_assign.name, value)
 
         if !was_set {
+            // :SemanticAnalysisError
             report_error(interp.file, ast.span, "Attempt to assign to variable '%v', but it wasn't declared yet.", ast_assign.name)
         }
 
@@ -395,6 +392,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
         case .Var:
             ast_var := cast(^Ast_Var)expr
             if !is_in_global_scope(interp) && ast_var.name == initialized_name {
+                // :SemanticAnalysisError
                 report_error(interp.file, expr.span, "Cannot use a local variable in its own initializer.")
             } else {
                 value, value_found := lookup_identifier(interp, ast_var.name, ast_var.hops_to_resolve)
@@ -413,6 +411,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             }
 
             if len(ast_call.args) != len(function.params) {
+                // :SemanticAnalysisError
                 report_error(interp.file, expr.span, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(function.params), len(ast_call.args))
             }
 
@@ -447,23 +446,6 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
     }
 
     unreachable()
-}
-
-resolve_identifier_value :: proc(interp: ^Interp, name: string) -> (value: Value, found: bool) {
-    env := interp.current_environment
-
-    for env != nil {
-        defer env = env.parent
-
-        value, found = env.variables[name]
-        if found do return value, found
-
-        function: ^Ast_Function
-        function, found = env.functions[name]
-        if found do return function, found
-    }
-
-    return nil, false
 }
 
 set_value :: proc(interp: ^Interp, name: string, value: Value) -> bool {
