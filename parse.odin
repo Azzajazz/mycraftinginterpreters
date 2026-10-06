@@ -43,6 +43,7 @@ Ast_Type :: enum {
     Nil,
    
     Negate,
+    Not,
 
     Plus,
     Times,
@@ -161,6 +162,7 @@ Ast_Unary_Operator :: struct {
 }
 
 Ast_Negate :: distinct Ast_Unary_Operator
+Ast_Not    :: distinct Ast_Unary_Operator
 
 Ast_Binary_Operator :: struct {
     using expr: Ast_Expression,
@@ -169,14 +171,14 @@ Ast_Binary_Operator :: struct {
     right: ^Ast_Expression,
 }
 
-Ast_Plus :: distinct Ast_Binary_Operator
-Ast_Minus :: distinct Ast_Binary_Operator
-Ast_Times :: distinct Ast_Binary_Operator
-Ast_Divide :: distinct Ast_Binary_Operator
-Ast_Equal :: distinct Ast_Binary_Operator
-Ast_Less :: distinct Ast_Binary_Operator
-Ast_LessEqual :: distinct Ast_Binary_Operator
-Ast_Greater :: distinct Ast_Binary_Operator
+Ast_Plus         :: distinct Ast_Binary_Operator
+Ast_Minus        :: distinct Ast_Binary_Operator
+Ast_Times        :: distinct Ast_Binary_Operator
+Ast_Divide       :: distinct Ast_Binary_Operator
+Ast_Equal        :: distinct Ast_Binary_Operator
+Ast_Less         :: distinct Ast_Binary_Operator
+Ast_LessEqual    :: distinct Ast_Binary_Operator
+Ast_Greater      :: distinct Ast_Binary_Operator
 Ast_GreaterEqual :: distinct Ast_Binary_Operator
 
 Ast_Var :: struct {
@@ -211,6 +213,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Bool = .Bool,
     Ast_Nil = .Nil,
     Ast_Negate = .Negate,
+    Ast_Not = .Not,
     Ast_Plus = .Plus,
     Ast_Minus = .Minus,
     Ast_Times = .Times,
@@ -392,7 +395,8 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         dump_indent(indent)
         fmt.println("  nil")
 
-    case .Negate:
+    case .Negate: fallthrough
+    case .Not:
         operator := cast(^Ast_Unary_Operator)ast
 
         dump_indent(indent)
@@ -860,35 +864,41 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         return nil
     }
 
-    is_negate := false
-    if token.type == .Minus {
-        is_negate = true
-        token = consume_token(parser)
-    }
-
     expr: ^Ast_Expression
     if token.type == .LeftParen {
         expr = parse_expression(parser)
         expect_token(parser, .RightParen, "Unmatched parentheses. Expected a ')'.")
     } else {
         #partial switch token.type {
+        case .Minus:
+            operand := parse_expression_leaf(parser)
+            negate := new_ast_node(Ast_Negate, token.code_index, operand.span.end, parser)
+            negate.operand = operand
+            expr = negate
+
+        case .Bang:
+            operand := parse_expression_leaf(parser)
+            not := new_ast_node(Ast_Not, token.code_index, operand.span.end, parser)
+            not.operand = operand
+            expr = not
+
         case .Number:
             ast := new_ast_node(Ast_Number, token.code_index, token.code_index + len(token.value), parser)
 
             number, number_ok := strconv.parse_f32(token.value)
             assert(number_ok)
             ast.value = number
-            expr = cast(^Ast_Expression)ast
+            expr = ast
 
         case .String:
             ast := new_ast_node(Ast_String, token.code_index, token.code_index + len(token.value) + 2, parser)
             ast.value = token.value
-            expr = cast(^Ast_Expression)ast
+            expr = ast
 
         case .True:
             ast := new_ast_node(Ast_Bool, token.code_index, token.code_index + 4, parser)
             ast.value = true
-            expr = cast(^Ast_Expression)ast
+            expr = ast
 
         case .False:
             ast := new_ast_node(Ast_Bool, token.code_index, token.code_index + 5,  parser)
@@ -897,12 +907,12 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
 
         case .Nil:
             ast := new_ast_node(Ast_Nil, token.code_index, token.code_index + 3,  parser)
-            expr = cast(^Ast_Expression)ast
+            expr = ast
 
         case .Identifier:
             ast := new_ast_node(Ast_Var, token.code_index, token.code_index + len(token.value),  parser)
             ast.name = token.value
-            expr = cast(^Ast_Expression)ast
+            expr = ast
         }
     }
 
@@ -929,15 +939,9 @@ parse_expression_leaf :: proc(parser: ^Parser) -> ^Ast_Expression {
         call.span.end = parser.tokens[parser.token_index].code_index
         call.identifier_expr = expr
 
-        expr = cast(^Ast_Expression)call
+        expr = call
         next = next_token(parser)
     }
 
-    if is_negate {
-        negate := new_ast_node(Ast_Negate, token.code_index, expr.span.end, parser)
-        negate.operand = expr
-        return negate
-    } else {
-        return expr
-    }
+    return expr
 }

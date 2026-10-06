@@ -240,6 +240,19 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 
             return -op
 
+        case .Not:
+            ast_not := cast(^Ast_Not)expr
+            operand := evaluate_expression(interp, ast_not.operand)
+
+            #partial switch op in operand {
+            case bool:
+                return !op
+            case nil:
+                return true
+            case:
+                return false
+            }
+
         case .Plus:
             ast_plus := cast(^Ast_Plus)expr
             left := evaluate_expression(interp, ast_plus.left)

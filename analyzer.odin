@@ -133,10 +133,11 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
             analyze(analyzer, arg)
         }
 
-    case .Negate:
-        ast_negate := cast(^Ast_Negate)ast
+    case .Negate: fallthrough
+    case .Not:
+        ast_op := cast(^Ast_Unary_Operator)ast
 
-        analyze(analyzer, ast_negate.operand)
+        analyze(analyzer, ast_op.operand)
 
     case .Plus: fallthrough
     case .Minus: fallthrough
