@@ -18,6 +18,8 @@ delete_scope_info :: proc(info: Scope_Info) {
 Analyzer :: struct {
     file: ^Lox_File,
     scope_infos: [dynamic]Scope_Info,
+
+    currently_defining: string,
 }
 
 delete_analyzer :: proc(analyzer: ^Analyzer) {
@@ -85,6 +87,10 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .VarDefinition:
         ast_vardef := cast(^Ast_Var_Definition)ast
 
+        analyzer.currently_defining = ast_vardef.name
+        analyze(analyzer, ast_vardef.value)
+        analyzer.currently_defining = ""
+
         if len(analyzer.scope_infos) > 1 {
             // We are not in global scope, so redefinition is an error.
             info := get_current_scope_info(analyzer)
@@ -105,6 +111,12 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
 
     case .Var:
         ast_var := cast(^Ast_Var)ast
+
+        // If we are using a variable in its own initializer and it's not in global scope,
+        // then error.
+        if len(analyzer.scope_infos) > 1 && analyzer.currently_defining == ast_var.name {
+                report_error(analyzer.file, ast.span, "Cannot use a local variable in its own initializer.")
+        }
 
         hops, found := resolve(analyzer, ast_var.name)
         if !found {
