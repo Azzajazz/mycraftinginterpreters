@@ -315,6 +315,32 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 
             return left_num - right_num
 
+        case .NotEqual:
+            ast_equal := cast(^Ast_Equal)expr
+            left := evaluate_expression(interp, ast_equal.left)
+            right := evaluate_expression(interp, ast_equal.right)
+
+            switch l in left {
+            case nil:
+                return right != nil
+
+            case f32:
+                r, r_is_num := right.(f32)
+                return !r_is_num || l != r
+
+            case string:
+                r, r_is_string := right.(string)
+                return !r_is_string || l != r
+
+            case bool:
+                r, r_is_bool := right.(bool)
+                return !r_is_bool || l != r
+
+            case ^Ast_Function:
+                // @Audit: When does it make sense to compare functions not equal?
+                return true
+            }
+
         case .Equal:
             ast_equal := cast(^Ast_Equal)expr
             left := evaluate_expression(interp, ast_equal.left)

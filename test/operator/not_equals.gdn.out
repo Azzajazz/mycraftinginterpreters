@@ -1,0 +1,16 @@
+#stdout
+b54:false
+false
+true
+false
+true
+false
+true
+true
+true
+true
+
+#exit_code
+i:0
+#stderr
+b0:

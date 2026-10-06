@@ -143,6 +143,7 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .Minus: fallthrough
     case .Times: fallthrough
     case .Divide: fallthrough
+    case .NotEqual: fallthrough
     case .Equal: fallthrough
     case .Less: fallthrough
     case .LessEqual: fallthrough

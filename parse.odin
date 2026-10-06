@@ -50,6 +50,7 @@ Ast_Type :: enum {
     Minus,
     Divide,
 
+    NotEqual,
     Equal,
     Less,
     LessEqual,
@@ -175,6 +176,7 @@ Ast_Plus         :: distinct Ast_Binary_Operator
 Ast_Minus        :: distinct Ast_Binary_Operator
 Ast_Times        :: distinct Ast_Binary_Operator
 Ast_Divide       :: distinct Ast_Binary_Operator
+Ast_Not_Equal    :: distinct Ast_Binary_Operator
 Ast_Equal        :: distinct Ast_Binary_Operator
 Ast_Less         :: distinct Ast_Binary_Operator
 Ast_LessEqual    :: distinct Ast_Binary_Operator
@@ -218,6 +220,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Minus = .Minus,
     Ast_Times = .Times,
     Ast_Divide = .Divide,
+    Ast_Not_Equal = .NotEqual,
     Ast_Equal = .Equal,
     Ast_Less = .Less,
     Ast_LessEqual = .LessEqual,
@@ -407,6 +410,7 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     case .Minus: fallthrough
     case .Times: fallthrough
     case .Divide: fallthrough
+    case .NotEqual: fallthrough
     case .Equal: fallthrough
     case .Less: fallthrough
     case .LessEqual: fallthrough
@@ -800,6 +804,7 @@ binding_powers := map[Token_Type]int{
     .Greater = 5,
     .GreaterEqual = 5,
     .EqualEqual = 6,
+    .BangEqual = 6,
     .Plus = 10,
     .Minus = 10,
     .Star = 20,
@@ -832,6 +837,8 @@ parse_expression :: proc(parser: ^Parser, max_binding_power := MIN_BINDING_POWER
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Times, left.span.start, right.span.end, parser)
         case .Slash:
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Divide, left.span.start, right.span.end, parser)
+        case .BangEqual:
+            ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Not_Equal, left.span.start, right.span.end, parser)
         case .EqualEqual:
             ast_operator = cast(^Ast_Binary_Operator)new_ast_node(Ast_Equal, left.span.start, right.span.end, parser)
         case .Less:
