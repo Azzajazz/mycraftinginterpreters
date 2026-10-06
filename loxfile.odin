@@ -1,6 +1,6 @@
 package lox
 
-LoxFile :: struct {
+Lox_File :: struct {
     path: string,
     code: string,
 

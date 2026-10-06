@@ -1,11 +1,17 @@
-fun b() {
-    var x;
-    fun a() {
-        x = 5;
+var a = 2;
+
+{
+    // This function should close around the global 'a' variable no matter what,
+    // but currently identifier resolution is done at call time, so the function closes
+    // around the most recent declaration of 'a' as the code is interpreted.
+
+    // In the first call below, it closes around the global 'a'.
+    // In the second call below, it closes around the local 'a'.
+    fun printA() {
+        print a;
     }
 
-    a();
-    return x;
+    printA(); // Should print 2, prints 2.
+    var a = 6;
+    printA(); // Should print 2, prints 6.
 }
-
-print b();

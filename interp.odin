@@ -41,7 +41,7 @@ Interp :: struct {
     // @Temporary: We need the code for each file to live somewhere so that error messages make sense.
     // It's either here or on every AST node.
     // Eventually we will have to support multiple files, so this will have to change.
-    file: ^LoxFile,
+    file: ^Lox_File,
 
     current_environment: ^Environment,
     scope_envs: map[^Ast_Scope]^Environment,
@@ -65,7 +65,7 @@ Lexical_Span :: struct {
 
 // :SpansForErrors
 // @Cleanup: Maybe introduce some concept of spans?
-report_error :: proc(file: ^LoxFile, span: Lexical_Span, format: string, args: ..any) {
+report_error :: proc(file: ^Lox_File, span: Lexical_Span, format: string, args: ..any) {
     line_number, char_number := get_line_and_char(file.code, span.start)
     fmt.eprintf("%v(%v:%v) Error: ", file.path, line_number + 1, char_number + 1)
     fmt.eprintfln(format, ..args)

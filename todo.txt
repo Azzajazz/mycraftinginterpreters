@@ -1,8 +1,5 @@
 This is just a list to write down stuff to do as I come across it.
 
-!!! Lexical spans in general.
-    // :SpansForErrors
-
 ----------------------------------------------------------------------
 
 - while

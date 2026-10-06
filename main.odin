@@ -46,7 +46,7 @@ main :: proc() {
     }
     source_code := cast(string)source_file_data
 
-    file := LoxFile{path = options.source_file, code = source_code}
+    file := Lox_File{path = options.source_file, code = source_code}
 
     interpret: {
         // Lexing.
@@ -90,6 +90,13 @@ main :: proc() {
         if options.parse_only do break interpret
 
 
+        // Analysis
+        analyzer := Analyzer{file = &file}
+        defer delete_analyzer(&analyzer)
+
+        analyze(&analyzer, ast)
+
+        
         // Interpreting.
         strings_arena: vmem.Arena
         err = vmem.arena_init_growing(&strings_arena)

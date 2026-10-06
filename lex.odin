@@ -57,7 +57,7 @@ Token :: struct {
 }
 
 Lexer :: struct {
-    file: ^LoxFile,
+    file: ^Lox_File,
     line: int,
     char: int,
     code_index: int,
@@ -76,14 +76,14 @@ get_line_and_char :: proc(code: string, code_index: int) -> (line: int, char: in
     return line, char
 }
 
-get_token_span :: proc(file: ^LoxFile, token: Token) -> Lexical_Span {
+get_token_span :: proc(file: ^Lox_File, token: Token) -> Lexical_Span {
     length := get_token_length(file, token)
     span := Lexical_Span{start = token.code_index, end = token.code_index + length}
     return span
 }
 
 // @Performance: Some tokens have predefined lengths (e.g. keywords).
-get_token_length :: proc(file: ^LoxFile, token: Token) -> int {
+get_token_length :: proc(file: ^Lox_File, token: Token) -> int {
     lexer := Lexer{file = file}
     lexer.code_index = token.code_index
 
@@ -94,12 +94,12 @@ get_token_length :: proc(file: ^LoxFile, token: Token) -> int {
     return end - start
 }
 
-get_token_code :: proc(file: ^LoxFile, token: Token) -> string {
+get_token_code :: proc(file: ^Lox_File, token: Token) -> string {
     length := get_token_length(file, token)
     return file.code[token.code_index:token.code_index + length]
 }
 
-report_lex_error :: proc(file: ^LoxFile, token: Token, format: string, args: ..any) {
+report_lex_error :: proc(file: ^Lox_File, token: Token, format: string, args: ..any) {
     line_start_index := token.code_index
     for line_start_index > 0 && file.code[line_start_index - 1] != '\n' {
         line_start_index -= 1
@@ -133,7 +133,7 @@ report_lex_error :: proc(file: ^LoxFile, token: Token, format: string, args: ..a
     had_error = true
 }
 
-lex :: proc(file: ^LoxFile) -> []Token {
+lex :: proc(file: ^Lox_File) -> []Token {
     tokens: [dynamic]Token
     lexer := Lexer{file = file}
     
@@ -358,7 +358,7 @@ lex_identifier_or_keyword :: proc(lexer: ^Lexer, token: ^Token) {
     }
 }
 
-dump_token :: proc(file: ^LoxFile, token: Token) {
+dump_token :: proc(file: ^Lox_File, token: Token) {
     type_str, type_str_ok := reflect.enum_name_from_value(token.type)
     assert(type_str_ok)
     fmt.print(type_str)

@@ -183,6 +183,9 @@ Ast_Var :: struct {
     using expr: Ast_Expression,
 
     name: string,
+
+    // Ignored by the parser. Filled by the analyzer.
+    resolved_declaration: ^Ast,
 }
 
 Ast_Call :: struct {
@@ -445,7 +448,7 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
 }
 
 Parser :: struct {
-    file: ^LoxFile,
+    file: ^Lox_File,
 
     tokens: []Token,
     token_index: int,
