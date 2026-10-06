@@ -46,8 +46,7 @@ add_variable_definition :: proc(analyzer: ^Analyzer, name: string) {
 }
 
 analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
-    // @TODO: Remove #partial probably.
-    #partial switch ast.type {
+    switch ast.type {
     case .Scope:
         ast_scope := cast(^Ast_Scope)ast
 
@@ -141,8 +140,10 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
 
         analyze(analyzer, ast_return.expr)
 
-    case:
-        fmt.panicf("TODO: %v", ast.type)
+    case .Assign:
+        ast_assign := cast(^Ast_Assign)ast
+
+        analyze(analyzer, ast_assign.value)
     }
 }
 
