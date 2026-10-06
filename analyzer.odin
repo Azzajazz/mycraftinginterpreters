@@ -174,6 +174,20 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .Assign:
         ast_assign := cast(^Ast_Assign)ast
 
+        // If we are assigning to a variable that isn't defined, then that's an error.
+        var_is_defined := false
+        #reverse for info in analyzer.scope_infos {
+            for def in info.defined_variables {
+                if def == ast_assign.name {
+                    var_is_defined = true
+                    break
+                }
+            }
+        }
+        if !var_is_defined {
+            report_error(analyzer.file, ast.span, "Attempt to assign to variable '%v', but it wasn't declared yet.", ast_assign.name)
+        }
+
         analyze(analyzer, ast_assign.value)
     }
 }

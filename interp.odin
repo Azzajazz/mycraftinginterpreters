@@ -196,11 +196,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
 
         value := evaluate_expression(interp, ast_assign.value)
         was_set := set_value(interp, ast_assign.name, value)
-
-        if !was_set {
-            // :SemanticAnalysisError
-            report_error(interp.file, ast.span, "Attempt to assign to variable '%v', but it wasn't declared yet.", ast_assign.name)
-        }
+        assert(was_set)
 
     case:
         if is_expression(ast) {
