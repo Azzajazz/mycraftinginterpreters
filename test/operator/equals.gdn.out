@@ -1,3 +1,5 @@
+#stderr
+b0:
 #stdout
 b56:true
 true
@@ -12,5 +14,3 @@ false
 
 #exit_code
 i:0
-#stderr
-b0:

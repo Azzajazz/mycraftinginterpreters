@@ -269,7 +269,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             left_num, left_is_num := left.(f32)
             right_num, right_is_num := right.(f32)
             if !left_is_num || !right_is_num {
-                report_internal_error("Multiplication is only implemented for number types.")
+                report_error(interp.file, expr.span, "'*' can only be applied to two 'number's. Here, the left operand has type '%v' and the right operand has type '%v'.", get_value_type_name(left), get_value_type_name(right))
             }
 
             return left_num * right_num

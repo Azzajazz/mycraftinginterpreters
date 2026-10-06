@@ -1,0 +1,9 @@
+#stderr
+b250:test/operator/multiply_num_nonnum.lox(1:1) Error: '*' can only be applied to two 'number's. Here, the left operand has type 'number' and the right operand has type 'string'.
+    1 * "1"; // expect runtime error: Operands must be numbers.
+    ^^^^^^^
+
+#stdout
+b0:
+#exit_code
+i:1
