@@ -397,7 +397,6 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             }
 
             if len(ast_call.args) != len(function.params) {
-                // :SemanticAnalysisError
                 report_error(interp.file, expr.span, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(function.params), len(ast_call.args))
             }
 
