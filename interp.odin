@@ -118,7 +118,7 @@ report_error :: proc(file: ^Lox_File, span: Lexical_Span, format: string, args: 
     os.exit(1)
 }
 
-evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (return_value: Value, did_return: bool) {
+evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return: bool) {
     #partial switch ast.type {
     case .Function:
         function := cast(^Ast_Function)ast
@@ -139,7 +139,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
         }
 
         for child in scope.children {
-            return_value, did_return = evaluate(interp, child, return_is_valid)
+            return_value, did_return = evaluate(interp, child)
             if did_return do return return_value, did_return
         }
 
@@ -161,10 +161,10 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
         value: Value
         returned: bool
         if condition_is_true {
-            value, returned = evaluate(interp, ast_if.if_true, return_is_valid)
+            value, returned = evaluate(interp, ast_if.if_true)
 
         } else if ast_if.if_false != nil {
-            value, returned = evaluate(interp, ast_if.if_false, return_is_valid)
+            value, returned = evaluate(interp, ast_if.if_false)
         }
         if returned do return value, returned
     
@@ -188,13 +188,8 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast, return_is_valid := false) -> (retur
     case .Return:
         ast_return := cast(^Ast_Return)ast
 
-        if return_is_valid {
-            expr := evaluate_expression(interp, ast_return.expr)
-            return expr, true
-        } else {
-            // :SemanticAnalysisError
-            report_error(interp.file, ast.span, "Return can only be used inside the body of a function.")
-        }
+        expr := evaluate_expression(interp, ast_return.expr)
+        return expr, true
 
     case .Assign:
         ast_assign := cast(^Ast_Assign)ast
@@ -435,7 +430,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             }
             
             for child in function.body.children {
-                value, returned := evaluate(interp, child, true)
+                value, returned := evaluate(interp, child)
                 if returned do return value
             }
 

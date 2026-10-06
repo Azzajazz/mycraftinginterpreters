@@ -6,6 +6,8 @@ Scope_Info :: struct {
     // @Performance: Maybe a set here?
     defined_variables: [dynamic]string,
     defined_functions: [dynamic]string,
+
+    is_function_scope: bool,
 }
 
 delete_scope_info :: proc(info: Scope_Info) {
@@ -30,8 +32,10 @@ get_current_scope_info :: proc(analyzer: ^Analyzer) -> ^Scope_Info {
     return &analyzer.scope_infos[len(analyzer.scope_infos) - 1]
 }
 
-add_scope_info :: proc(analyzer: ^Analyzer) {
+add_scope_info :: proc(analyzer: ^Analyzer, is_function_scope: bool) {
     resize(&analyzer.scope_infos, len(analyzer.scope_infos) + 1)
+    info := get_current_scope_info(analyzer)
+    info.is_function_scope = is_function_scope
 }
 
 remove_scope_info :: proc(analyzer: ^Analyzer) {
@@ -54,7 +58,7 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .Scope:
         ast_scope := cast(^Ast_Scope)ast
 
-        add_scope_info(analyzer)
+        add_scope_info(analyzer, false)
         defer remove_scope_info(analyzer)
 
         for child in ast_scope.children {
@@ -66,7 +70,7 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
 
         add_function_definition(analyzer, ast_function.name)
 
-        add_scope_info(analyzer)
+        add_scope_info(analyzer, true)
         defer remove_scope_info(analyzer)
 
         // Treat function parameters as declarations.
@@ -152,6 +156,18 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
 
     case .Return:
         ast_return := cast(^Ast_Return)ast
+
+        // If we aren't in a function, then this is an error.
+        in_function := false
+        #reverse for info in analyzer.scope_infos {
+            if info.is_function_scope {
+                in_function = true
+                break
+            }
+        }
+        if !in_function {
+            report_error(analyzer.file, ast.span, "Return can only be used inside the body of a function.")
+        }
 
         analyze(analyzer, ast_return.expr)
 
