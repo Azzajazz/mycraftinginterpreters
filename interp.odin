@@ -382,15 +382,10 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 
         case .Var:
             ast_var := cast(^Ast_Var)expr
-            if !is_in_global_scope(interp) && ast_var.name == initialized_name {
-                // :SemanticAnalysisError
-                report_error(interp.file, expr.span, "Cannot use a local variable in its own initializer.")
-            } else {
-                value, value_found := lookup_identifier(interp, ast_var.name, ast_var.hops_to_resolve)
-                assert(value_found)
-                
-                return value
-            }
+            value, value_found := lookup_identifier(interp, ast_var.name, ast_var.hops_to_resolve)
+            assert(value_found)
+            
+            return value
 
         case .Call:
             ast_call := cast(^Ast_Call)expr
