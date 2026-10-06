@@ -1,0 +1,9 @@
+#exit_code
+i:1
+#stdout
+b0:
+#stderr
+b213:test/operator/negate_nonnum.lox(1:1) Error: The negation operator '-' can only be applied to a 'number'. Here, the argument has type 'string'.
+    -"s"; // expect runtime error: Operand must be a number.
+    ^^^^
+

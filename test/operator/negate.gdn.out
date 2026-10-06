@@ -1,0 +1,9 @@
+#stdout
+b8:-3
+3
+-3
+
+#stderr
+b0:
+#exit_code
+i:0
