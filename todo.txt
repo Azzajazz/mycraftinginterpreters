@@ -1,16 +1,12 @@
 This is just a list to write down stuff to do as I come across it.
 
-- Move as many errors as possible to semantic analysis.
-            // :SemanticAnalysisError
-
 ----------------------------------------------------------------------
 
+- generate tests for closures
+- generate any missing tests in the categories already covered
 
 - while
 - for
-
-
-- assignment
 
 - Better error messages for invalid variable names (e.g. for test/variable/use_false_as_var.lox)
 
