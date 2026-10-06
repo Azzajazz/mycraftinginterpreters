@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b37:test/operator/subtract_num_nonnum.lox
+lend
