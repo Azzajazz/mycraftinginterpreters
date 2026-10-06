@@ -1,9 +1,9 @@
+#stderr
+b211:test/variable/undefined_global.lox(1:7) Error: Variable notDefined was used, but it hasn't been defined yet.
+    print notDefined;  // expect runtime error: Undefined variable 'notDefined'.
+          ^^^^^^^^^^
+
 #stdout
 b0:
 #exit_code
 i:1
-#stderr
-b207:test/variable/undefined_global.lox(1:7) Error: Variable notDefined was used, but it hasn't been defined.
-    print notDefined;  // expect runtime error: Undefined variable 'notDefined'.
-          ^^^^^^^^^^
-

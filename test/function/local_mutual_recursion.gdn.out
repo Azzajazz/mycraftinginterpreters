@@ -1,9 +1,9 @@
-#stdout
-b0:
 #exit_code
 i:1
+#stdout
+b0:
 #stderr
-b173:test/function/local_mutual_recursion.lox(3:17) Error: Return statements can only be used in function scope.
-        if (n == 0) return true;
-                    ^^^^^^^^^^^
+b214:test/function/local_mutual_recursion.lox(4:12) Error: Variable isOdd was used, but it hasn't been defined yet.
+        return isOdd(n - 1); // expect runtime error: Undefined variable 'isOdd'.
+               ^^^^^
 

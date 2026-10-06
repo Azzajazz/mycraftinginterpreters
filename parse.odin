@@ -185,7 +185,7 @@ Ast_Var :: struct {
     name: string,
 
     // Ignored by the parser. Filled by the analyzer.
-    resolved_declaration: ^Ast,
+    hops_to_resolve: int,
 }
 
 Ast_Call :: struct {

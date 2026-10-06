@@ -3,13 +3,14 @@ package lox
 import "core:fmt"
 
 Scope_Info :: struct {
-    variable_declarations: map[string]^Ast_Var_Definition,
-    function_declarations: map[string]^Ast_Function,
+    // @Performance: Maybe a set here?
+    defined_variables: [dynamic]string,
+    defined_functions: [dynamic]string,
 }
 
 delete_scope_info :: proc(info: Scope_Info) {
-    delete(info.variable_declarations)
-    delete(info.function_declarations)
+    delete(info.defined_variables)
+    delete(info.defined_functions)
 }
 
 Analyzer :: struct {
@@ -34,8 +35,14 @@ remove_scope_info :: proc(analyzer: ^Analyzer) {
     delete_scope_info(scope_info)
 }
 
-get_current_scope_info :: proc(analyzer: ^Analyzer) -> ^Scope_Info {
-    return &analyzer.scope_infos[len(analyzer.scope_infos) - 1]
+add_function_definition :: proc(analyzer: ^Analyzer, name: string) {
+    info := &analyzer.scope_infos[len(analyzer.scope_infos) - 1]
+    append(&info.defined_functions, name)
+}
+
+add_variable_definition :: proc(analyzer: ^Analyzer, name: string) {
+    info := &analyzer.scope_infos[len(analyzer.scope_infos) - 1]
+    append(&info.defined_variables, name)
 }
 
 analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
@@ -54,14 +61,15 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .Function:
         ast_function := cast(^Ast_Function)ast
 
-        scope_info := get_current_scope_info(analyzer)
-        scope_info.function_declarations[ast_function.name] = ast_function
+        add_function_definition(analyzer, ast_function.name)
 
         add_scope_info(analyzer)
         defer remove_scope_info(analyzer)
 
         // Treat function parameters as declarations.
-        scope_info = get_current_scope_info(analyzer)
+        for param in ast_function.params {
+            add_variable_definition(analyzer, param)
+        }
 
         for child in ast_function.body.children {
             analyze(analyzer, child)
@@ -70,8 +78,7 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .VarDefinition:
         ast_vardef := cast(^Ast_Var_Definition)ast
 
-        scope_info := get_current_scope_info(analyzer)
-        scope_info.variable_declarations[ast_vardef.name] = ast_vardef
+        add_variable_definition(analyzer, ast_vardef.name)
 
     case .Print:
         ast_print := cast(^Ast_Print)ast
@@ -81,13 +88,12 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .Var:
         ast_var := cast(^Ast_Var)ast
 
-        decl, found := resolve(analyzer, ast_var.name)
+        hops, found := resolve(analyzer, ast_var.name)
         if !found {
-            fmt.println(analyzer)
-            report_error(analyzer.file, ast.span, "Variable %v was used, but it hasn't been declared yet.", ast_var.name)
+            report_error(analyzer.file, ast.span, "Variable %v was used, but it hasn't been defined yet.", ast_var.name)
         }
 
-        ast_var.resolved_declaration = decl
+        ast_var.hops_to_resolve = hops
 
     case .Call:
         ast_call := cast(^Ast_Call)ast
@@ -140,14 +146,22 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     }
 }
 
-resolve :: proc(analyzer: ^Analyzer, name: string) -> (decl: ^Ast, found: bool) {
+resolve :: proc(analyzer: ^Analyzer, name: string) -> (hops: int, found: bool) {
     #reverse for info in analyzer.scope_infos {
-        decl, found = info.variable_declarations[name]
-        if found do return decl, found
+        defer hops += 1
 
-        decl, found = info.function_declarations[name]
-        if found do return decl, found
+        for def in info.defined_variables {
+            if def == name {
+                return hops, true
+            }
+        }
+
+        for def in info.defined_functions {
+            if def == name {
+                return hops, true
+            }
+        }
     }
 
-    return nil, false
+    return 0, false
 }

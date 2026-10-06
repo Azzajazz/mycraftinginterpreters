@@ -397,11 +397,9 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             if !is_in_global_scope(interp) && ast_var.name == initialized_name {
                 report_error(interp.file, expr.span, "Cannot use a local variable in its own initializer.")
             } else {
-                value, value_found := resolve_identifier_value(interp, ast_var.name)
+                value, value_found := lookup_identifier(interp, ast_var.name, ast_var.hops_to_resolve)
+                assert(value_found)
                 
-                if !value_found {
-                    report_error(interp.file, expr.span, "Variable %v was used, but it hasn't been defined.", ast_var.name)
-                }
                 return value
             }
 
@@ -427,27 +425,22 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             for i in 0..<len(ast_call.args) {
                 value := evaluate_expression(interp, ast_call.args[i])
                 env.variables[function.params[i]] = value
-
-                // @Incomplete: What if the arguments are functions?
             }
 
             interp.current_environment = env
 
-            value: Value = nil
+            defer {
+                env = interp.current_environment
+                interp.current_environment = old_env
+                delete_environment(env)
+            }
+            
             for child in function.body.children {
-                returned: bool
-                value, returned = evaluate(interp, child, true)
-                if returned {
-                    break
-                }
+                value, returned := evaluate(interp, child, true)
+                if returned do return value
             }
 
-            env = interp.current_environment
-            interp.current_environment = old_env
-            delete_environment(env)
-            
-            // @Incomplete: Return values.
-            return value
+            return nil
 
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)
@@ -486,4 +479,19 @@ set_value :: proc(interp: ^Interp, name: string, value: Value) -> bool {
     }
 
     return false
+}
+
+lookup_identifier :: proc(interp: ^Interp, name: string, hops: int) -> (value: Value, value_found: bool) {
+    env := interp.current_environment
+    for _ in 0..<hops {
+        env = env.parent
+    }
+
+    value, value_found = env.variables[name]
+    if value_found do return value, value_found
+
+    value, value_found = env.functions[name]
+    if value_found do return value, value_found
+
+    return nil, false
 }
