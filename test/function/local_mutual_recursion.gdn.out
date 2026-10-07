@@ -1,9 +1,9 @@
 #exit_code
 i:1
-#stdout
-b0:
 #stderr
-b214:test/function/local_mutual_recursion.lox(4:12) Error: Variable isOdd was used, but it hasn't been defined yet.
+b216:test/function/local_mutual_recursion.lox(4:12) Error: Variable 'isOdd' was used, but it hasn't been defined yet.
         return isOdd(n - 1); // expect runtime error: Undefined variable 'isOdd'.
                ^^^^^
 
+#stdout
+b0:

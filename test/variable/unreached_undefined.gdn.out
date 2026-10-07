@@ -1,9 +1,9 @@
+#exit_code
+i:1
 #stderr
-b189:test/variable/unreached_undefined.lox(2:9) Error: Variable notDefined was used, but it hasn't been defined yet.
-      print notDefined; // expect: undefined variable
+b161:test/variable/unreached_undefined.lox(2:9) Error: Variable 'notDefined' was used, but it hasn't been defined yet.
+      print notDefined;
             ^^^^^^^^^^
 
 #stdout
 b0:
-#exit_code
-i:1

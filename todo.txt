@@ -21,4 +21,9 @@ This is just a list to write down stuff to do as I come across it.
 - Error API improvements:
     - reporting and recovering from parse errors.
 
+- test/function/too_many_arguments.lox
+- test/function/too_many_parameters.lox
+
+- Review errors when declaring a variable with the same name as a function and vice versa.
+
 ----------------------------------------------------------------------

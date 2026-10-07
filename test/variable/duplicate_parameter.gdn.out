@@ -1,9 +1,6 @@
+#stderr
+b0:
 #stdout
 b0:
-#stderr
-b130:test/variable/duplicate_parameter.lox(1:1) Error: Duplicate parameter 'arg' provided in function 'foo'.
-    fun foo(arg,
-    ^^^^
-
 #exit_code
-i:1
+i:0
