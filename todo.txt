@@ -5,6 +5,8 @@ This is just a list to write down stuff to do as I come across it.
 - generate tests for closures
 - generate any missing tests in the categories already covered
 
+- return_is_valid in parse_declaration_or_statement. Should be caught by analyzer already.
+
 - while
 - for
 

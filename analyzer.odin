@@ -193,21 +193,25 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .Assign:
         ast_assign := cast(^Ast_Assign)ast
 
+        // @Temporary. Support more things here.
+        assert(ast_assign.left.type == .Var)
+        left := cast(^Ast_Var)ast_assign.left
+
         // If we are assigning to a variable that isn't defined, then that's an error.
         var_is_defined := false
         #reverse for info in analyzer.scope_infos {
             for def in info.defined_variables {
-                if def == ast_assign.name {
+                if def == left.name {
                     var_is_defined = true
                     break
                 }
             }
         }
         if !var_is_defined {
-            report_error(analyzer.file, ast.span, "Attempt to assign to variable '%v', but it wasn't declared yet.", ast_assign.name)
+            report_error(analyzer.file, ast.span, "Attempt to assign to variable '%v', but it wasn't declared yet.", left.name)
         }
 
-        analyze(analyzer, ast_assign.value)
+        analyze(analyzer, ast_assign.right)
     }
 }
 

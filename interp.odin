@@ -197,13 +197,6 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
         expr := evaluate_expression(interp, ast_return.expr)
         return expr, true
 
-    case .Assign:
-        ast_assign := cast(^Ast_Assign)ast
-
-        value := evaluate_expression(interp, ast_assign.value)
-        was_set := set_value(interp, ast_assign.name, value)
-        assert(was_set)
-
     case:
         if is_expression(ast) {
             evaluate_expression(interp, cast(^Ast_Expression)ast)
@@ -482,6 +475,19 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             case:
                 report_error(interp.file, expr.span, "Attempt to call an expression that is not a function.")
             }
+
+        case .Assign:
+            ast_assign := cast(^Ast_Assign)expr
+
+            // @Temporary. Support more things.
+            assert(ast_assign.left.type == .Var)
+            left := cast(^Ast_Var)ast_assign.left
+
+            value := evaluate_expression(interp, ast_assign.right)
+            was_set := set_value(interp, left.name, value)
+            assert(was_set)
+
+            return value
 
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)
