@@ -6,20 +6,24 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 
+Native_Function :: distinct string
+
 Value :: union {
     string,
     f32,
     bool,
     ^Ast_Function,
+    Native_Function,
 }
 
 get_value_type_name :: proc(value: Value) -> string {
     switch _ in value {
-    case nil:           return "nil"
-    case string:        return "string"
-    case f32:           return "number"
-    case bool:          return "bool"
-    case ^Ast_Function: return "function"
+    case nil:    return "nil"
+    case string: return "string"
+    case f32:    return "number"
+    case bool:   return "bool"
+    case ^Ast_Function, Native_Function: 
+        return "function"
     }
 
     unreachable()
@@ -178,6 +182,8 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
                 fmt.println(v)
             case ^Ast_Function:
                 fmt.printfln("<fn %v>", v.name)
+            case Native_Function:
+                fmt.printfln("<native fn %v>", v)
         }
 
     case .VarDefinition:
@@ -336,7 +342,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 r, r_is_bool := right.(bool)
                 return !r_is_bool || l != r
 
-            case ^Ast_Function:
+            case ^Ast_Function, Native_Function:
                 // @Audit: When does it make sense to compare functions not equal?
                 return true
             }
@@ -362,7 +368,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 r, r_is_bool := right.(bool)
                 return r_is_bool && l == r
 
-            case ^Ast_Function:
+            case ^Ast_Function, Native_Function:
                 // @Audit: When does it make sense to compare functions equal?
                 return false
             }
@@ -421,6 +427,12 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 
         case .Var:
             ast_var := cast(^Ast_Var)expr
+
+            // Native functions should always resolve.
+            if ast_var.name == "clock" {
+                return cast(Native_Function)ast_var.name
+            }
+
             value, value_found := lookup_identifier(interp, ast_var.name, ast_var.hops_to_resolve)
             assert(value_found)
             
@@ -430,40 +442,46 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             ast_call := cast(^Ast_Call)expr
 
             identifier_value := evaluate_expression(interp, ast_call.identifier_expr)
-            function, is_function := identifier_value.(^Ast_Function)
-            if !is_function {
+
+            #partial switch id in identifier_value {
+            case ^Ast_Function:
+                if len(ast_call.args) != len(id.params) {
+                    report_error(interp.file, expr.span, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(id.params), len(ast_call.args))
+                }
+
+                old_env := interp.current_environment
+
+                env := new(Environment)
+                env.parent = interp.scope_envs[id.enclosing_scope]
+
+                // Bind the values of the arguments to the parameters in the body scope.
+                for i in 0..<len(ast_call.args) {
+                    value := evaluate_expression(interp, ast_call.args[i])
+                    env.variables[id.params[i]] = value
+                }
+
+                interp.current_environment = env
+
+                defer {
+                    env = interp.current_environment
+                    interp.current_environment = old_env
+                    delete_environment(env)
+                }
+                
+                for child in id.body.children {
+                    value, returned := evaluate(interp, child)
+                    if returned do return value
+                }
+
+                return nil
+
+            case Native_Function:
+                assert(id == "clock")
+                return clock()
+
+            case:
                 report_error(interp.file, expr.span, "Attempt to call an expression that is not a function.")
             }
-
-            if len(ast_call.args) != len(function.params) {
-                report_error(interp.file, expr.span, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(function.params), len(ast_call.args))
-            }
-
-            old_env := interp.current_environment
-
-            env := new(Environment)
-            env.parent = interp.scope_envs[function.enclosing_scope]
-
-            // Bind the values of the arguments to the parameters in the body scope.
-            for i in 0..<len(ast_call.args) {
-                value := evaluate_expression(interp, ast_call.args[i])
-                env.variables[function.params[i]] = value
-            }
-
-            interp.current_environment = env
-
-            defer {
-                env = interp.current_environment
-                interp.current_environment = old_env
-                delete_environment(env)
-            }
-            
-            for child in function.body.children {
-                value, returned := evaluate(interp, child)
-                if returned do return value
-            }
-
-            return nil
 
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)

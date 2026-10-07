@@ -118,9 +118,14 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
                 report_error(analyzer.file, ast.span, "Cannot use a local variable in its own initializer.")
         }
 
+        // Resolve native procedures.
+        if ast_var.name == "clock" {
+            break
+        }
+
         hops, found := resolve(analyzer, ast_var.name)
         if !found {
-            report_error(analyzer.file, ast.span, "Variable %v was used, but it hasn't been defined yet.", ast_var.name)
+            report_error(analyzer.file, ast.span, "Variable '%v' was used, but it hasn't been defined yet.", ast_var.name)
         }
 
         ast_var.hops_to_resolve = hops
