@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b41:test/closure/assign_to_shadowed_later.lox
+lend

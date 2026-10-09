@@ -1,0 +1,10 @@
+#stderr
+b0:
+#stdout
+b30:local
+after f
+after f
+after g
+
+#exit_code
+i:0

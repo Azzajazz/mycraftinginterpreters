@@ -193,6 +193,7 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .Assign:
         ast_assign := cast(^Ast_Assign)ast
 
+        analyze(analyzer, ast_assign.left)
         // @Temporary. Support more things here.
         assert(ast_assign.left.type == .Var)
         left := cast(^Ast_Var)ast_assign.left
@@ -217,8 +218,6 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
 
 resolve :: proc(analyzer: ^Analyzer, name: string) -> (hops: int, found: bool) {
     #reverse for info in analyzer.scope_infos {
-        defer hops += 1
-
         for def in info.defined_variables {
             if def == name {
                 return hops, true
@@ -230,6 +229,8 @@ resolve :: proc(analyzer: ^Analyzer, name: string) -> (hops: int, found: bool) {
                 return hops, true
             }
         }
+
+        hops += 1
     }
 
     return 0, false

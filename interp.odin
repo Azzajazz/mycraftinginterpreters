@@ -484,8 +484,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             left := cast(^Ast_Var)ast_assign.left
 
             value := evaluate_expression(interp, ast_assign.right)
-            was_set := set_value(interp, left.name, value)
-            assert(was_set)
+            set_value(interp, left.name, value, left.hops_to_resolve)
 
             return value
 
@@ -496,19 +495,13 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
     unreachable()
 }
 
-set_value :: proc(interp: ^Interp, name: string, value: Value) -> bool {
+set_value :: proc(interp: ^Interp, name: string, value: Value, hops: int) {
     env := interp.current_environment
-
-    for env != nil {
-        defer env = env.parent
-
-        if name in env.variables {
-            env.variables[name] = value
-            return true
-        }
+    for _ in 0..<hops {
+        env = env.parent
     }
 
-    return false
+    env.variables[name] = value
 }
 
 lookup_identifier :: proc(interp: ^Interp, name: string, hops: int) -> (value: Value, value_found: bool) {
