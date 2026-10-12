@@ -29,15 +29,39 @@ get_value_type_name :: proc(value: Value) -> string {
     unreachable()
 }
 
+Environment_Flag :: enum {
+    NoFree,
+}
+
 Environment :: struct {
     parent: ^Environment,
+    children: [dynamic]^Environment,
+
     variables: map[string]Value,
-    functions: map[string]^Ast_Function,
+    functions: map[string]Value,
+
+    flags: bit_set[Environment_Flag],
 }
 
 delete_environment :: proc(env: ^Environment) {
+    for child in env.children {
+        delete_environment(child)
+    }
+    delete(env.children)
+
     delete(env.variables)
     delete(env.functions)
+
+    // @Hack? We have to remove the child from the parent to avoid double frees.
+    if env.parent != nil {
+        for child, i in env.parent.children {
+            if child == env {
+                unordered_remove(&env.parent.children, i)
+                break
+            }
+        }
+    }
+
     free(env)
 }
 
@@ -48,14 +72,24 @@ Interp :: struct {
     file: ^Lox_File,
 
     current_environment: ^Environment,
-    scope_envs: map[^Ast_Scope]^Environment,
 
     // @Temporary? Linear allocator to store runtime constructed strings.
     strings_allocator: runtime.Allocator,
 }
 
 delete_interp :: proc(interp: ^Interp) {
-    delete(interp.scope_envs)
+    // @Cleanup: Remove
+}
+
+make_environment :: proc(parent: ^Environment) -> ^Environment {
+    env := new(Environment)
+
+    env.parent = parent
+    if parent != nil {
+        append(&parent.children, env)
+    }
+
+    return env
 }
 
 is_in_global_scope :: proc(interp: ^Interp) -> bool {
@@ -67,8 +101,6 @@ Lexical_Span :: struct {
     end: int,
 }
 
-// :SpansForErrors
-// @Cleanup: Maybe introduce some concept of spans?
 report_error :: proc(file: ^Lox_File, span: Lexical_Span, format: string, args: ..any) {
     line_number, char_number := get_line_and_char(file.code, span.start)
     fmt.eprintf("%v(%v:%v) Error: ", file.path, line_number + 1, char_number + 1)
@@ -134,10 +166,14 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
         scope := cast(^Ast_Scope)ast
 
         // @Leak: Free this at some point?
-        env := new(Environment)
-        env.parent = interp.current_environment
+        env := make_environment(interp.current_environment)
         interp.current_environment = env
-        defer interp.current_environment = env.parent
+        defer {
+            interp.current_environment = env.parent
+            if .NoFree not_in env.flags {
+                delete_environment(env)
+            }
+        }
 
         for child in scope.children {
             return_value, did_return = evaluate(interp, child)
@@ -426,7 +462,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             value, value_found := lookup_identifier(interp, ast_var.name, ast_var.hops_to_resolve)
             assert(value_found)
             
-            return value
+            return value^
 
         case .Call:
             ast_call := cast(^Ast_Call)expr
@@ -442,8 +478,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 old_env := interp.current_environment
 
                 // @Leak: Free this at some point?
-                env := new(Environment)
-                env.parent = id.enclosing_environment
+                env := make_environment(id.enclosing_environment)
 
                 // Bind the values of the arguments to the parameters in the body scope.
                 for i in 0..<len(ast_call.args) {
@@ -452,7 +487,12 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 }
 
                 interp.current_environment = env
-                defer interp.current_environment = old_env
+                defer {
+                    interp.current_environment = old_env
+                    if .NoFree not_in env.flags {
+                        delete_environment(env)
+                    }
+                }
                 
                 for child in id.body.children {
                     value, returned := evaluate(interp, child)
@@ -476,10 +516,10 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             assert(ast_assign.left.type == .Var)
             left := cast(^Ast_Var)ast_assign.left
 
-            value := evaluate_expression(interp, ast_assign.right)
-            set_value(interp, left.name, value, left.hops_to_resolve)
+            value_slot, value_slot_found := lookup_identifier(interp, left.name, left.hops_to_resolve)
+            value_slot^ = evaluate_expression(interp, ast_assign.right)
 
-            return value
+            return value_slot^
 
         case:
             report_internal_error("AST type %v is not an expression type.", expr.type)
@@ -497,16 +537,22 @@ set_value :: proc(interp: ^Interp, name: string, value: Value, hops: int) {
     env.variables[name] = value
 }
 
-lookup_identifier :: proc(interp: ^Interp, name: string, hops: int) -> (value: Value, value_found: bool) {
+// @Unsafe! Don't hold onto this value any longer than you need to, since it may
+// get moved in memory by subsequent declarations, for example.
+lookup_identifier :: proc(interp: ^Interp, name: string, hops: int) -> (value: ^Value, value_found: bool) {
     env := interp.current_environment
     for _ in 0..<hops {
+        // If we had to actually hop backwards, then we should not free this
+        // environment when we exit it, since we can still access it from an
+        // outer environment.
+        env.flags += {.NoFree}
         env = env.parent
     }
 
-    value, value_found = env.variables[name]
+    value, value_found = &env.variables[name]
     if value_found do return value, value_found
 
-    value, value_found = env.functions[name]
+    value, value_found = &env.functions[name]
     if value_found do return value, value_found
 
     return nil, false
