@@ -165,7 +165,6 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
     case .Scope:
         scope := cast(^Ast_Scope)ast
 
-        // @Leak: Free this at some point?
         env := make_environment(interp.current_environment)
         interp.current_environment = env
         defer {
@@ -477,7 +476,6 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 
                 old_env := interp.current_environment
 
-                // @Leak: Free this at some point?
                 env := make_environment(id.enclosing_environment)
 
                 // Bind the values of the arguments to the parameters in the body scope.
