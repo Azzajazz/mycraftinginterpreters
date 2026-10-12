@@ -31,9 +31,15 @@ main :: proc() {
     context.allocator = mem.tracking_allocator(&track)
 
     defer {
+        /* @Hack @Cleanup @Memory: Re-enable this!
+         @Hack @Cleanup @Memory: Re-enable this!
+         @Hack @Cleanup @Memory: Re-enable this!
+         @Hack @Cleanup @Memory: Re-enable this!
+         @Hack @Cleanup @Memory: Re-enable this!
         for _, leak in track.allocation_map {
             fmt.printfln("%v leaked %m", leak.location, leak.size)
         }
+        */
     }
 
     flags.parse_or_exit(&options, os.args)

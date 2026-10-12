@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b42:test/closure/close_over_later_variable.lox
+lend

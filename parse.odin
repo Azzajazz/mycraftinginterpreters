@@ -80,7 +80,8 @@ Ast_Function :: struct {
     params: [dynamic]string,
     body: ^Ast_Scope,
 
-    enclosing_scope: ^Ast_Scope,
+    // Set by the interpreter.
+    enclosing_environment: ^Environment,
 }
 
 Ast_Statement :: struct {
@@ -538,7 +539,6 @@ parse_declaration_or_statement :: proc(parser: ^Parser, return_is_valid := false
 
         function.name = name.value
         function.body = cast(^Ast_Scope)body
-        function.enclosing_scope = parser.scopes[len(parser.scopes) - 1]
 
         return function
 

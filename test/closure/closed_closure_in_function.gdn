@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b43:test/closure/closed_closure_in_function.lox
+lend

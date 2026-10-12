@@ -128,19 +128,16 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
         function := cast(^Ast_Function)ast
 
         interp.current_environment.functions[function.name] = function
-        interp.scope_envs[function.enclosing_scope] = interp.current_environment
+        function.enclosing_environment = interp.current_environment
 
     case .Scope:
         scope := cast(^Ast_Scope)ast
 
+        // @Leak: Free this at some point?
         env := new(Environment)
         env.parent = interp.current_environment
         interp.current_environment = env
-        defer {
-            env = interp.current_environment
-            interp.current_environment = env.parent
-            delete_environment(env)
-        }
+        defer interp.current_environment = env.parent
 
         for child in scope.children {
             return_value, did_return = evaluate(interp, child)
@@ -444,8 +441,9 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 
                 old_env := interp.current_environment
 
+                // @Leak: Free this at some point?
                 env := new(Environment)
-                env.parent = interp.scope_envs[id.enclosing_scope]
+                env.parent = id.enclosing_environment
 
                 // Bind the values of the arguments to the parameters in the body scope.
                 for i in 0..<len(ast_call.args) {
@@ -454,12 +452,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 }
 
                 interp.current_environment = env
-
-                defer {
-                    env = interp.current_environment
-                    interp.current_environment = old_env
-                    delete_environment(env)
-                }
+                defer interp.current_environment = old_env
                 
                 for child in id.body.children {
                     value, returned := evaluate(interp, child)
