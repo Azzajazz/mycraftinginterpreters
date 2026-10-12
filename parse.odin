@@ -512,7 +512,7 @@ parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     return global_scope
 }
 
-parse_declaration_or_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast {
+parse_declaration_or_statement :: proc(parser: ^Parser) -> ^Ast {
     token := next_token(parser)
 
     if token.type == .Eof {
@@ -535,7 +535,7 @@ parse_declaration_or_statement :: proc(parser: ^Parser, return_is_valid := false
             // @Crash @Cleanup: report_error exits the program. We should recover and continue parsing instead.
             report_error(parser.file, get_token_span(parser.file, token), "A function body must be a scope. Expected '{{', but got '%v'.", get_token_code(parser.file, token))
         }
-        body := parse_scope(parser, true)
+        body := parse_scope(parser)
 
         function.name = name.value
         function.body = cast(^Ast_Scope)body
@@ -543,7 +543,7 @@ parse_declaration_or_statement :: proc(parser: ^Parser, return_is_valid := false
         return function
 
     case:
-        return parse_statement(parser, return_is_valid)
+        return parse_statement(parser)
     }
 }
 
@@ -624,7 +624,7 @@ parse_argument_list :: proc(parser: ^Parser, span: Lexical_Span, args: ^[dynamic
     consume_token(parser) // Consume the right paren.
 }
 
-parse_scope :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_Scope {
+parse_scope :: proc(parser: ^Parser) -> ^Ast_Scope {
     token := consume_token(parser) // Consume the left brace.
     assert(token.type == .LeftBrace)
 
@@ -642,7 +642,7 @@ parse_scope :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_Scope {
             report_error(parser.file, scope.span, "Reached end of file while parsing a scope.")
         }
 
-        decl := parse_declaration_or_statement(parser, return_is_valid)
+        decl := parse_declaration_or_statement(parser)
         append(&scope.children, decl)
         token = next_token(parser)
     }
@@ -653,14 +653,14 @@ parse_scope :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_Scope {
     return scope
 }
 
-parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_Statement {
+parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
     ast: ^Ast_Statement
 
     token := next_token(parser)
 
     #partial switch token.type {
         case .LeftBrace:
-            scope := parse_scope(parser, return_is_valid)
+            scope := parse_scope(parser)
             // Early return here since we don't need a terminating semicolon.
             return scope
 
@@ -686,7 +686,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
                 report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
             }
 
-            if_true := parse_statement(parser, return_is_valid)
+            if_true := parse_statement(parser)
 
             if_false: ^Ast_Statement
 
@@ -700,7 +700,7 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
                     report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
                 }
 
-                if_false = parse_statement(parser, return_is_valid)
+                if_false = parse_statement(parser)
             }
 
             ast_if := new_ast_node(Ast_If, token.code_index, if_true.span.end, parser)
@@ -742,10 +742,6 @@ parse_statement :: proc(parser: ^Parser, return_is_valid := false) -> ^Ast_State
         case .Return:
             consume_token(parser)
             expr := parse_expression(parser)
-
-            if !return_is_valid {
-                report_error(parser.file, Lexical_Span{token.code_index, expr.span.end}, "Return statements can only be used in function scope.")
-            }
 
             ast_return := new_ast_node(Ast_Return, token.code_index, expr.span.end, parser)
             ast_return.expr = expr
