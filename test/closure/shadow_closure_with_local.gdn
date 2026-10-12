@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b42:test/closure/shadow_closure_with_local.lox
+lend

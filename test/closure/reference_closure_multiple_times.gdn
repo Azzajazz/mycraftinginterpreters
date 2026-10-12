@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b49:test/closure/reference_closure_multiple_times.lox
+lend

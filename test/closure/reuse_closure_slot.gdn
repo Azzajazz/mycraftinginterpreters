@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b35:test/closure/reuse_closure_slot.lox
+lend
