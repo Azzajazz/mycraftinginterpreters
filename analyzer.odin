@@ -173,6 +173,12 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
             analyze(analyzer, ast_if.if_false)
         }
 
+    case .While:
+        ast_while := cast(^Ast_While)ast
+
+        analyze(analyzer, ast_while.condition)
+        analyze(analyzer, ast_while.body)
+
     case .Return:
         ast_return := cast(^Ast_Return)ast
 

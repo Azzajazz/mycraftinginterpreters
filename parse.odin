@@ -30,7 +30,10 @@ Ast_Type :: enum {
     // Statements that are not expressions:
     VarDefinition,
     Scope,
+
     If,
+    While,
+
     Print,
     Return,
 
@@ -109,6 +112,13 @@ Ast_If :: struct {
     condition: ^Ast_Expression,
     if_true: ^Ast_Statement,
     if_false: ^Ast_Statement, // nil if there is no 'else'.
+}
+
+Ast_While :: struct {
+    using stmt: Ast_Statement,
+
+    condition: ^Ast_Expression,
+    body: ^Ast_Statement,
 }
 
 Ast_Print :: struct {
@@ -200,6 +210,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Var_Definition = .VarDefinition,
     Ast_Scope = .Scope,
     Ast_If = .If,
+    Ast_While = .While,
     Ast_Print = .Print,
     Ast_Return = .Return,
 
@@ -339,6 +350,19 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
             
             dump_ast(ast_if.if_false, indent + 1)
         }
+
+    case .While:
+        ast_while := cast(^Ast_While)ast
+
+        dump_indent(indent)
+        fmt.print("  condition = ")
+
+        dump_ast(ast_while.condition, indent + 1)
+
+        dump_indent(indent)
+        fmt.print("  body = ")
+
+        dump_ast(ast_while.body, indent + 1)
 
     case .Print:
         print := cast(^Ast_Print)ast
@@ -710,6 +734,37 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
 
             // Early return here since we don't need a terminating semicolon.
             return ast_if
+
+        case .While:
+            consume_token(parser) // Consume the 'while' keyword.
+
+            paren := consume_token(parser)
+            if paren.type != .LeftParen {
+                report_error(parser.file, get_token_span(parser.file, paren), "If conditions must be wrapped in parentheses. Expected '(', but got '%v'.", get_token_code(parser.file, paren))
+            }
+
+            condition := parse_expression(parser)
+
+            paren = consume_token(parser)
+            if paren.type != .RightParen {
+                report_error(parser.file, get_token_span(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
+            }
+
+            // @Cleanup: Not sure if this makes sense, but since variable definitions are
+            // handled by parse_statement as valid, we need a check here.
+            maybe_var := next_token(parser)
+            if maybe_var.type == .Var {
+                report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
+            }
+
+            body := parse_statement(parser)
+
+            ast_while := new_ast_node(Ast_While, token.code_index, body.span.end, parser)
+            ast_while.condition = condition
+            ast_while.body = body
+
+            // Early return here since we don't need a terminating semicolon.
+            return ast_while
 
         case .Print:
             consume_token(parser) // Consume the 'print' keyword.

@@ -1,5 +1,9 @@
 This is just a list to write down stuff to do as I come across it.
 
+- while
+- for
+
+
 ----------------------------------------------------------------------
 
 ! Recovering from parse errors.
@@ -9,9 +13,6 @@ This is just a list to write down stuff to do as I come across it.
 
 
 
-
-- while
-- for
 
 - Better error messages for invalid variable names (e.g. for test/variable/use_false_as_var.lox)
 

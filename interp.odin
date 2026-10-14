@@ -203,6 +203,31 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
             value, returned = evaluate(interp, ast_if.if_false)
         }
         if returned do return value, returned
+
+    case .While:
+        ast_while := cast(^Ast_While)ast
+
+        for {
+            condition_value := evaluate_expression(interp, ast_while.condition)
+
+            condition_is_true: bool
+            #partial switch v in condition_value {
+            case bool:
+                condition_is_true = v
+            case nil:
+                condition_is_true = false
+            case:
+                condition_is_true = true
+            }
+
+            if !condition_is_true do break
+
+            // @Performance: If the body of the while is a block, then this will
+            // create a new environment per iteration. We could probably reuse the same
+            // environment.
+            return_value, did_return = evaluate(interp, ast_while.body)
+            if did_return do return return_value, did_return
+        }
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
