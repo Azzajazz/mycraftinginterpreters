@@ -82,9 +82,6 @@ Ast_Function :: struct {
     // @Memory @Cleanup :DynamicArrayInArena
     params: [dynamic]string,
     body: ^Ast_Scope,
-
-    // Set by the interpreter.
-    enclosing_environment: ^Environment,
 }
 
 Ast_Statement :: struct {

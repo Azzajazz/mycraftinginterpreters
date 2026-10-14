@@ -8,11 +8,16 @@ import "core:strings"
 
 Native_Function :: distinct string
 
+Function :: struct {
+    ast: ^Ast_Function,
+    enclosing_environment: ^Environment,
+}
+
 Value :: union {
     string,
     f32,
     bool,
-    ^Ast_Function,
+    Function,
     Native_Function,
 }
 
@@ -22,7 +27,7 @@ get_value_type_name :: proc(value: Value) -> string {
     case string: return "string"
     case f32:    return "number"
     case bool:   return "bool"
-    case ^Ast_Function, Native_Function: 
+    case Function, Native_Function: 
         return "function"
     }
 
@@ -159,8 +164,10 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
     case .Function:
         function := cast(^Ast_Function)ast
 
-        interp.current_environment.functions[function.name] = function
-        function.enclosing_environment = interp.current_environment
+        interp.current_environment.functions[function.name] = Function {
+            ast = function,
+            enclosing_environment = interp.current_environment,
+        }
 
     case .Scope:
         scope := cast(^Ast_Scope)ast
@@ -237,8 +244,8 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
                 fmt.println("nil")
             case f32, string, bool:
                 fmt.println(v)
-            case ^Ast_Function:
-                fmt.printfln("<fn %v>", v.name)
+            case Function:
+                fmt.printfln("<fn %v>", v.ast.name)
             case Native_Function:
                 fmt.printfln("<native fn %v>", v)
         }
@@ -392,7 +399,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 r, r_is_bool := right.(bool)
                 return !r_is_bool || l != r
 
-            case ^Ast_Function, Native_Function:
+            case Function, Native_Function:
                 // @Audit: When does it make sense to compare functions not equal?
                 return true
             }
@@ -418,7 +425,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 r, r_is_bool := right.(bool)
                 return r_is_bool && l == r
 
-            case ^Ast_Function, Native_Function:
+            case Function, Native_Function:
                 // @Audit: When does it make sense to compare functions equal?
                 return false
             }
@@ -494,9 +501,9 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             identifier_value := evaluate_expression(interp, ast_call.identifier_expr)
 
             #partial switch id in identifier_value {
-            case ^Ast_Function:
-                if len(ast_call.args) != len(id.params) {
-                    report_error(interp.file, expr.span, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(id.params), len(ast_call.args))
+            case Function:
+                if len(ast_call.args) != len(id.ast.params) {
+                    report_error(interp.file, expr.span, "Function was called with the incorrect number of arguments. Expected %v arguments, got %v.", len(id.ast.params), len(ast_call.args))
                 }
 
                 old_env := interp.current_environment
@@ -506,7 +513,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 // Bind the values of the arguments to the parameters in the body scope.
                 for i in 0..<len(ast_call.args) {
                     value := evaluate_expression(interp, ast_call.args[i])
-                    env.variables[id.params[i]] = value
+                    env.variables[id.ast.params[i]] = value
                 }
 
                 interp.current_environment = env
@@ -517,7 +524,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                     }
                 }
                 
-                for child in id.body.children {
+                for child in id.ast.body.children {
                     value, returned := evaluate(interp, child)
                     if returned do return value
                 }
