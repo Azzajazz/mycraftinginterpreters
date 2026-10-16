@@ -190,16 +190,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
         ast_if := cast(^Ast_If)ast
 
         condition_value := evaluate_expression(interp, ast_if.condition)
-
-        condition_is_true: bool
-        #partial switch v in condition_value {
-        case bool:
-            condition_is_true = v
-        case nil:
-            condition_is_true = false
-        case:
-            condition_is_true = true
-        }
+        condition_is_true := convert_to_boolean(condition_value)
 
         value: Value
         returned: bool
@@ -217,16 +208,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
         for {
             condition_value := evaluate_expression(interp, ast_while.condition)
 
-            condition_is_true: bool
-            #partial switch v in condition_value {
-            case bool:
-                condition_is_true = v
-            case nil:
-                condition_is_true = false
-            case:
-                condition_is_true = true
-            }
-
+            condition_is_true := convert_to_boolean(condition_value)
             if !condition_is_true do break
 
             // @Performance: If the body of the while is a block, then this will
@@ -235,6 +217,11 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
             return_value, did_return = evaluate(interp, ast_while.body)
             if did_return do return return_value, did_return
         }
+
+        /*
+    case .For:
+        ast_for := cast(^Ast_For)ast_for
+        */
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
@@ -310,14 +297,8 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             ast_not := cast(^Ast_Not)expr
             operand := evaluate_expression(interp, ast_not.operand)
 
-            #partial switch op in operand {
-            case bool:
-                return !op
-            case nil:
-                return true
-            case:
-                return false
-            }
+            result := convert_to_boolean(operand)
+            return !result
 
         case .Plus:
             ast_plus := cast(^Ast_Plus)expr
@@ -589,4 +570,15 @@ lookup_identifier :: proc(interp: ^Interp, name: string, hops: int) -> (value: ^
     if value_found do return value, value_found
 
     return nil, false
+}
+
+convert_to_boolean :: proc(value: Value) -> bool {
+    #partial switch v in value {
+    case bool:
+        return v
+    case nil:
+        return false
+    case:
+        return true
+    }
 }
