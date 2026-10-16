@@ -258,7 +258,10 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
     case .Return:
         ast_return := cast(^Ast_Return)ast
 
-        expr := evaluate_expression(interp, ast_return.expr)
+        expr: Value = nil
+        if ast_return.expr != nil {
+            expr = evaluate_expression(interp, ast_return.expr)
+        }
         return expr, true
 
     case:

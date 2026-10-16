@@ -377,20 +377,26 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     case .For:
         ast_for := cast(^Ast_For)ast
 
-        dump_indent(indent)
-        fmt.print("  precondition = ")
+        if ast_for.initializer != nil {
+            dump_indent(indent)
+            fmt.print("  precondition = ")
 
-        dump_ast(ast_for.initializer, indent + 1)
+            dump_ast(ast_for.initializer, indent + 1)
+        }
 
-        dump_indent(indent)
-        fmt.print("  condition = ")
+        if ast_for.condition != nil {
+            dump_indent(indent)
+            fmt.print("  condition = ")
 
-        dump_ast(ast_for.condition, indent + 1)
+            dump_ast(ast_for.condition, indent + 1)
+        }
 
-        dump_indent(indent)
-        fmt.print("  postcondition = ")
+        if ast_for.incrementer != nil {
+            dump_indent(indent)
+            fmt.print("  postcondition = ")
 
-        dump_ast(ast_for.incrementer, indent + 1)
+            dump_ast(ast_for.incrementer, indent + 1)
+        }
 
         dump_indent(indent)
         fmt.print("  body = ")
@@ -408,10 +414,11 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
     case .Return:
         ast_return := cast(^Ast_Return)ast
 
-        dump_indent(indent)
-        fmt.print("  expr = ")
-
-        dump_ast(ast_return.expr, indent + 1)
+        if ast_return.expr != nil {
+            dump_indent(indent)
+            fmt.print("  expr = ")
+            dump_ast(ast_return.expr, indent + 1)
+        }
 
     case .Number:
         number := cast(^Ast_Number)ast
@@ -904,10 +911,17 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             ast = print
 
         case .Return:
-            consume_token(parser)
-            expr := parse_expression(parser)
+            consume_token(parser) // Consume the 'return' keyword.
 
-            ast_return := new_ast_node(Ast_Return, token.code_index, expr.span.end, parser)
+            next := next_token(parser)
+            expr: ^Ast_Expression
+            span_end := token.code_index + get_token_length(parser.file, token)
+            if next.type != .Semicolon {
+                expr = parse_expression(parser)
+                span_end = expr.span.end
+            }
+
+            ast_return := new_ast_node(Ast_Return, token.code_index, span_end, parser)
             ast_return.expr = expr
 
             ast = ast_return

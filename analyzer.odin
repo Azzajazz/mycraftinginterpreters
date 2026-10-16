@@ -182,9 +182,15 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .For:
         ast_for := cast(^Ast_For)ast
 
-        analyze(analyzer, ast_for.initializer)
-        analyze(analyzer, ast_for.condition)
-        analyze(analyzer, ast_for.incrementer)
+        if ast_for.initializer != nil {
+            analyze(analyzer, ast_for.initializer)
+        }
+        if ast_for.condition != nil {
+            analyze(analyzer, ast_for.condition)
+        }
+        if ast_for.incrementer != nil {
+            analyze(analyzer, ast_for.incrementer)
+        }
         analyze(analyzer, ast_for.body)
 
     case .Return:
@@ -202,7 +208,9 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
             report_error(analyzer.file, ast.span, "Return can only be used inside the body of a function.")
         }
 
-        analyze(analyzer, ast_return.expr)
+        if ast_return.expr != nil {
+            analyze(analyzer, ast_return.expr)
+        }
 
     case .Assign:
         ast_assign := cast(^Ast_Assign)ast
