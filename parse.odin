@@ -122,7 +122,9 @@ Ast_While :: struct {
 Ast_For :: struct {
     using stmt: Ast_Statement,
 
-    initializer: ^Ast_Expression,
+    // Using ^Ast here since the initializer can be a variable definition, which
+    // is not an expression.
+    initializer: ^Ast,
     condition: ^Ast_Expression,
     incrementer: ^Ast_Expression,
     body: ^Ast_Statement,
@@ -591,6 +593,8 @@ parse_scope_entry :: proc(parser: ^Parser) -> ^Ast {
         // Parse parameter list.
         parse_parameter_list(parser, function, &function.params)
 
+        // :ExpectToken
+        // @Cleanup
         token = next_token(parser)
         if token.type != .LeftBrace {
             // @Crash @Cleanup: report_error exits the program. We should recover and continue parsing instead.
@@ -842,13 +846,28 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
                 report_error(parser.file, get_token_span(parser.file, paren), "If conditions must be wrapped in parentheses. Expected '(', but got '%v'.", get_token_code(parser.file, paren))
             }
 
-            initializer := parse_expression(parser)
+            // Initializer can be an expression or a variable definition.
+            next := next_token(parser)
+            initializer: ^Ast
+            if next.type == .Var {
+                initializer = parse_variable_definition(parser)
+            } else if next.type != .Semicolon {
+                initializer = parse_expression(parser)
+            }
             expect_token(parser, .Semicolon, "Expected a semicolon after for loop precondition");
 
-            condition := parse_expression(parser)
+            next = next_token(parser)
+            condition: ^Ast_Expression
+            if next.type != .Semicolon {
+                condition = parse_expression(parser)
+            }
             expect_token(parser, .Semicolon, "Expected a semicolon after for loop condition");
 
-            incrementer := parse_expression(parser)
+            next = next_token(parser)
+            incrementer: ^Ast_Expression
+            if next.type != .RightParen {
+                incrementer = parse_expression(parser)
+            }
 
             // :ExpectToken
             // @Cleanup: We can probably just use expect_token here. Lel.
@@ -897,6 +916,7 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             ast = parse_expression(parser)
     }
 
+    // @Cleanup: Does this make sense here, or should it be somewhere else?
     expect_token(parser, .Semicolon, "Statements must be followed by a ';'.")
     return ast
 }
