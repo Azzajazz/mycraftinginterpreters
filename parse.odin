@@ -33,6 +33,7 @@ Ast_Type :: enum {
 
     If,
     While,
+    For,
 
     Print,
     Return,
@@ -115,6 +116,15 @@ Ast_While :: struct {
     using stmt: Ast_Statement,
 
     condition: ^Ast_Expression,
+    body: ^Ast_Statement,
+}
+
+Ast_For :: struct {
+    using stmt: Ast_Statement,
+
+    initializer: ^Ast_Expression,
+    condition: ^Ast_Expression,
+    incrementer: ^Ast_Expression,
     body: ^Ast_Statement,
 }
 
@@ -208,6 +218,7 @@ ast_types := map[typeid]Ast_Type {
     Ast_Scope = .Scope,
     Ast_If = .If,
     Ast_While = .While,
+    Ast_For = .For,
     Ast_Print = .Print,
     Ast_Return = .Return,
 
@@ -360,6 +371,29 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         fmt.print("  body = ")
 
         dump_ast(ast_while.body, indent + 1)
+
+    case .For:
+        ast_for := cast(^Ast_For)ast
+
+        dump_indent(indent)
+        fmt.print("  precondition = ")
+
+        dump_ast(ast_for.initializer, indent + 1)
+
+        dump_indent(indent)
+        fmt.print("  condition = ")
+
+        dump_ast(ast_for.condition, indent + 1)
+
+        dump_indent(indent)
+        fmt.print("  postcondition = ")
+
+        dump_ast(ast_for.incrementer, indent + 1)
+
+        dump_indent(indent)
+        fmt.print("  body = ")
+
+        dump_ast(ast_for.body, indent + 1)
 
     case .Print:
         print := cast(^Ast_Print)ast
@@ -523,17 +557,17 @@ parse_all :: proc(parser: ^Parser) -> ^Ast_Scope {
     global_scope := new_ast_node(Ast_Scope, 0, 0, parser)
     append(&parser.scopes, global_scope)
 
-    decl := parse_declaration_or_statement(parser)
+    decl := parse_scope_entry(parser)
     for decl != nil {
         append(&global_scope.children, decl)
-        decl = parse_declaration_or_statement(parser)
+        decl = parse_scope_entry(parser)
     }
 
     pop(&parser.scopes)
     return global_scope
 }
 
-parse_declaration_or_statement :: proc(parser: ^Parser) -> ^Ast {
+parse_scope_entry :: proc(parser: ^Parser) -> ^Ast {
     token := next_token(parser)
 
     if token.type == .Eof {
@@ -541,6 +575,12 @@ parse_declaration_or_statement :: proc(parser: ^Parser) -> ^Ast {
     }
 
     #partial switch token.type {
+    case .Var:
+        var_def := parse_variable_definition(parser)
+        expect_token(parser, .Semicolon, "Statements must be followed by a ';'.")
+        return var_def
+
+
     case .Fun:
         consume_token(parser) // Consume the 'fun' keyword.
         name := expect_token(parser, .Identifier, "Function name must be a valid identifier.")
@@ -663,7 +703,7 @@ parse_scope :: proc(parser: ^Parser) -> ^Ast_Scope {
             report_error(parser.file, scope.span, "Reached end of file while parsing a scope.")
         }
 
-        decl := parse_declaration_or_statement(parser)
+        decl := parse_scope_entry(parser)
         append(&scope.children, decl)
         token = next_token(parser)
     }
@@ -672,6 +712,27 @@ parse_scope :: proc(parser: ^Parser) -> ^Ast_Scope {
 
     pop(&parser.scopes)
     return scope
+}
+
+parse_variable_definition :: proc(parser: ^Parser) -> ^Ast_Var_Definition {
+    var := consume_token(parser) // Consume the 'var' keyword.
+    assert(var.type == .Var)
+
+    name := expect_token(parser, .Identifier, "Variable names must be valid identifiers.")
+    next := next_token(parser)
+
+    value: ^Ast_Expression
+    if next.type == .Equal {
+        consume_token(parser) // Consume the 'equals'.
+        value = parse_expression(parser)
+    } else {
+        value = cast(^Ast_Expression)new_ast_node(Ast_Nil, name.code_index,  name.code_index + len(name.value), parser)
+    }
+
+    var_def := new_ast_node(Ast_Var_Definition, var.code_index, value.span.end, parser)
+    var_def.name = name.value
+    var_def.value = value
+    return var_def
 }
 
 parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
@@ -688,6 +749,8 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
         case .If:
             consume_token(parser) // Consume the 'if' keyword.
 
+            // :ExpectToken
+            // @Cleanup: We can probably just use expect_token here. Lel.
             paren := consume_token(parser)
             if paren.type != .LeftParen {
                 report_error(parser.file, get_token_span(parser.file, paren), "If conditions must be wrapped in parentheses. Expected '(', but got '%v'.", get_token_code(parser.file, paren))
@@ -695,6 +758,8 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
 
             condition := parse_expression(parser)
 
+            // :ExpectToken
+            // @Cleanup: We can probably just use expect_token here. Lel.
             paren = consume_token(parser)
             if paren.type != .RightParen {
                 report_error(parser.file, get_token_span(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
@@ -735,6 +800,8 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
         case .While:
             consume_token(parser) // Consume the 'while' keyword.
 
+            // :ExpectToken
+            // @Cleanup: We can probably just use expect_token here. Lel.
             paren := consume_token(parser)
             if paren.type != .LeftParen {
                 report_error(parser.file, get_token_span(parser.file, paren), "If conditions must be wrapped in parentheses. Expected '(', but got '%v'.", get_token_code(parser.file, paren))
@@ -742,6 +809,8 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
 
             condition := parse_expression(parser)
 
+            // :ExpectToken
+            // @Cleanup: We can probably just use expect_token here. Lel.
             paren = consume_token(parser)
             if paren.type != .RightParen {
                 report_error(parser.file, get_token_span(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
@@ -763,6 +832,49 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             // Early return here since we don't need a terminating semicolon.
             return ast_while
 
+        case .For:
+            consume_token(parser) // Consume the 'print' keyword.
+
+            // :ExpectToken
+            // @Cleanup: We can probably just use expect_token here. Lel.
+            paren := consume_token(parser)
+            if paren.type != .LeftParen {
+                report_error(parser.file, get_token_span(parser.file, paren), "If conditions must be wrapped in parentheses. Expected '(', but got '%v'.", get_token_code(parser.file, paren))
+            }
+
+            initializer := parse_expression(parser)
+            expect_token(parser, .Semicolon, "Expected a semicolon after for loop precondition");
+
+            condition := parse_expression(parser)
+            expect_token(parser, .Semicolon, "Expected a semicolon after for loop condition");
+
+            incrementer := parse_expression(parser)
+
+            // :ExpectToken
+            // @Cleanup: We can probably just use expect_token here. Lel.
+            paren = consume_token(parser)
+            if paren.type != .RightParen {
+                report_error(parser.file, get_token_span(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
+            }
+
+            // @Cleanup: Not sure if this makes sense, but since variable definitions are
+            // handled by parse_statement as valid, we need a check here.
+            maybe_var := next_token(parser)
+            if maybe_var.type == .Var {
+                report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
+            }
+
+            body := parse_statement(parser)
+
+            ast_for := new_ast_node(Ast_For, token.code_index, body.span.end, parser)
+            ast_for.initializer = initializer
+            ast_for.condition = condition
+            ast_for.incrementer = incrementer
+            ast_for.body = body
+
+            // Early return here since we don't need a terminating semicolon.
+            return ast_for
+
         case .Print:
             consume_token(parser) // Consume the 'print' keyword.
             expr := parse_expression(parser)
@@ -771,25 +883,6 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             print.expr = expr
 
             ast = print
-
-        case .Var:
-            consume_token(parser) // Consume the 'var' keyword.
-            name := expect_token(parser, .Identifier, "Variable names must be valid identifiers.")
-            next := next_token(parser)
-
-            value: ^Ast_Expression
-            if next.type == .Equal {
-                consume_token(parser) // Consume the 'equals'.
-                value = parse_expression(parser)
-            } else {
-                value = cast(^Ast_Expression)new_ast_node(Ast_Nil, name.code_index,  name.code_index + len(name.value), parser)
-            }
-
-            var_def := new_ast_node(Ast_Var_Definition, token.code_index, value.span.end, parser)
-            var_def.name = name.value
-            var_def.value = value
-
-            ast = var_def
 
         case .Return:
             consume_token(parser)

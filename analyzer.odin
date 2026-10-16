@@ -179,6 +179,14 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
         analyze(analyzer, ast_while.condition)
         analyze(analyzer, ast_while.body)
 
+    case .For:
+        ast_for := cast(^Ast_For)ast
+
+        analyze(analyzer, ast_for.initializer)
+        analyze(analyzer, ast_for.condition)
+        analyze(analyzer, ast_for.incrementer)
+        analyze(analyzer, ast_for.body)
+
     case .Return:
         ast_return := cast(^Ast_Return)ast
 

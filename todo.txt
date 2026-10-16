@@ -1,6 +1,5 @@
 This is just a list to write down stuff to do as I come across it.
 
-- while
 - for
 
 
@@ -12,6 +11,11 @@ This is just a list to write down stuff to do as I come across it.
 ! Convert to bytecode interpreter.
 
 
+- In test/while/syntax.lox:
+    // @Cleanup: Uncomment this when 'for' is implemented. while (false) for (;;) 1;
+
+- // :ExpectToken
+  // @Cleanup: We can probably just use expect_token here. Lel.
 
 
 - Better error messages for invalid variable names (e.g. for test/variable/use_false_as_var.lox)
