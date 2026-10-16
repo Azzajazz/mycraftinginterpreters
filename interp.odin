@@ -218,10 +218,43 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
             if did_return do return return_value, did_return
         }
 
-        /*
     case .For:
-        ast_for := cast(^Ast_For)ast_for
-        */
+        ast_for := cast(^Ast_For)ast
+
+        need_environment_for_initializer := ast_for.initializer != nil && ast_for.initializer.type == .VarDefinition 
+        if need_environment_for_initializer {
+            // Make an environment for the initializer variable.
+            env := make_environment(interp.current_environment)
+            interp.current_environment = env
+
+            evaluate(interp, ast_for.initializer)
+        }
+        defer if need_environment_for_initializer {
+            env := interp.current_environment
+            interp.current_environment = env.parent
+            if .NoFree not_in env.flags {
+                delete_environment(env)
+            }
+        }
+
+        for {
+            if ast_for.condition != nil {
+                condition_value := evaluate_expression(interp, ast_for.condition)
+
+                condition_is_true := convert_to_boolean(condition_value)
+                if !condition_is_true do break
+            }
+
+            // @Performance: If the body of the while is a block, then this will
+            // create a new environment per iteration. We could probably reuse the same
+            // environment.
+            return_value, did_return = evaluate(interp, ast_for.body)
+            if did_return do return return_value, did_return
+
+            if ast_for.incrementer != nil {
+                evaluate(interp, ast_for.incrementer)
+            }
+        }
     
     case .Print:
         ast_print := cast(^Ast_Print)ast
