@@ -539,8 +539,6 @@ next_token :: proc(parser: ^Parser) -> Token {
     return parser.tokens[parser.token_index]
 }
 
-// @Cleanup: Provide a message here instead of forcing it to conform to the
-// "Expected x, but got y" format.
 expect_token :: proc(parser: ^Parser, token_type: Token_Type, format: string, args: ..any) -> (token: Token, ok: bool) #optional_ok {
     token = consume_token(parser)
 
@@ -776,13 +774,6 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
                 report_error(parser.file, get_token_span(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
             }
 
-            // @Cleanup: Not sure if this makes sense, but since variable definitions are
-            // handled by parse_statement as valid, we need a check here.
-            maybe_var := next_token(parser)
-            if maybe_var.type == .Var {
-                report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
-            }
-
             if_true := parse_statement(parser)
 
             if_false: ^Ast_Statement
@@ -790,13 +781,6 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             maybe_else := next_token(parser)
             if maybe_else.type == .Else {
                 consume_token(parser) // Consume the 'else' keyword.
-                // @Cleanup: Not sure if this makes sense, but since variable definitions are
-                // handled by parse_statement as valid, we need a check here.
-                maybe_var = next_token(parser)
-                if maybe_var.type == .Var {
-                    report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
-                }
-
                 if_false = parse_statement(parser)
             }
 
@@ -825,13 +809,6 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             paren = consume_token(parser)
             if paren.type != .RightParen {
                 report_error(parser.file, get_token_span(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
-            }
-
-            // @Cleanup: Not sure if this makes sense, but since variable definitions are
-            // handled by parse_statement as valid, we need a check here.
-            maybe_var := next_token(parser)
-            if maybe_var.type == .Var {
-                report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
             }
 
             body := parse_statement(parser)
@@ -881,13 +858,6 @@ parse_statement :: proc(parser: ^Parser) -> ^Ast_Statement {
             paren = consume_token(parser)
             if paren.type != .RightParen {
                 report_error(parser.file, get_token_span(parser.file, paren), "Expected ')', but got '%v'.", get_token_code(parser.file, paren))
-            }
-
-            // @Cleanup: Not sure if this makes sense, but since variable definitions are
-            // handled by parse_statement as valid, we need a check here.
-            maybe_var := next_token(parser)
-            if maybe_var.type == .Var {
-                report_error(parser.file, get_token_span(parser.file, maybe_var), "Expected an expression, but got '%v'.", get_token_code(parser.file, maybe_var))
             }
 
             body := parse_statement(parser)

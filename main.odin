@@ -111,7 +111,6 @@ main :: proc() {
         strings_allocator := vmem.arena_allocator(&strings_arena)
 
         interp := Interp{file = &file, strings_allocator = strings_allocator}
-        defer delete_interp(&interp)
 
         if options.expr_mode {
             value := evaluate_expression(&interp, cast(^Ast_Expression)ast)

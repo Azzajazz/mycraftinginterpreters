@@ -82,10 +82,6 @@ Interp :: struct {
     strings_allocator: runtime.Allocator,
 }
 
-delete_interp :: proc(interp: ^Interp) {
-    // @Cleanup: Remove
-}
-
 make_environment :: proc(parent: ^Environment) -> ^Environment {
     env := new(Environment)
 
@@ -584,8 +580,8 @@ set_value :: proc(interp: ^Interp, name: string, value: Value, hops: int) {
     env.variables[name] = value
 }
 
-// @Unsafe! Don't hold onto this value any longer than you need to, since it may
-// get moved in memory by subsequent declarations, for example.
+// @Unsafe! Don't hold onto the pointer to the Value any longer than you need to, since it may
+// get moved in memory by subsequent declarations causing the underlying variable map to resize.
 lookup_identifier :: proc(interp: ^Interp, name: string, hops: int) -> (value: ^Value, value_found: bool) {
     env := interp.current_environment
     for _ in 0..<hops {
