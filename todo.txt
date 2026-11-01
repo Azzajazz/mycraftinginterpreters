@@ -2,13 +2,6 @@ This is just a list to write down stuff to do as I come across it.
 
 
 
- IMPORTANT! THIS IS TOP PRIORITY!
-        /* @Hack @Cleanup @Memory: Re-enable this!
-         @Hack @Cleanup @Memory: Re-enable this!
-         @Hack @Cleanup @Memory: Re-enable this!
-         @Hack @Cleanup @Memory: Re-enable this!
-         @Hack @Cleanup @Memory: Re-enable this!
-
 ----------------------------------------------------------------------
 
 ! Implement gtest record so that we don't have to mess with the gdn files all the time.

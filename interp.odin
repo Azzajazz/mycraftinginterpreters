@@ -50,6 +50,7 @@ Environment :: struct {
 
 delete_environment :: proc(env: ^Environment) {
     for child in env.children {
+        if child == nil do continue
         delete_environment(child)
     }
     delete(env.children)
@@ -57,11 +58,13 @@ delete_environment :: proc(env: ^Environment) {
     delete(env.variables)
     delete(env.functions)
 
-    // @Hack? We have to remove the child from the parent to avoid double frees.
+    // @Hack. We have to remove the child from the parent to avoid double frees, but
+    // we can't just remove it because the previous recursive call may still be iterating
+    // over the children of this environment's parent.
     if env.parent != nil {
-        for child, i in env.parent.children {
+        for &child in env.parent.children {
             if child == env {
-                unordered_remove(&env.parent.children, i)
+                child = nil
                 break
             }
         }
