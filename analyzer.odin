@@ -182,6 +182,9 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .For:
         ast_for := cast(^Ast_For)ast
 
+        add_scope_info(analyzer, false)
+        defer remove_scope_info(analyzer)
+
         if ast_for.initializer != nil {
             analyze(analyzer, ast_for.initializer)
         }

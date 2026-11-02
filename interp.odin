@@ -220,21 +220,19 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
     case .For:
         ast_for := cast(^Ast_For)ast
 
-        need_environment_for_initializer := ast_for.initializer != nil && ast_for.initializer.type == .VarDefinition 
-        if need_environment_for_initializer {
-            // Make an environment for the initializer variable.
-            env := make_environment(interp.current_environment)
-            interp.current_environment = env
-
-            evaluate(interp, ast_for.initializer)
-        }
-        defer if need_environment_for_initializer {
+        // Make an environment for the initializer variable.
+        env := make_environment(interp.current_environment)
+        interp.current_environment = env
+        defer {
+            // @Cleanup: I feel like we should always clean this up and skip the NoFree check?
             env := interp.current_environment
             interp.current_environment = env.parent
             if .NoFree not_in env.flags {
                 delete_environment(env)
             }
         }
+
+        evaluate(interp, ast_for.initializer)
 
         for {
             if ast_for.condition != nil {
