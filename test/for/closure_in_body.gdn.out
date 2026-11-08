@@ -1,0 +1,12 @@
+#exit_code
+i:0
+#stdout
+b12:4
+1
+4
+2
+4
+3
+
+#stderr
+b0:
