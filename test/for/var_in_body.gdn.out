@@ -1,0 +1,9 @@
+#stdout
+b0:
+#stderr
+b116:test/for/var_in_body.lox(2:10) Error: Expected an expression, but got 'var'.
+    for (;;) var foo;
+             ^^^
+
+#exit_code
+i:1

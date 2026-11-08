@@ -1,0 +1,9 @@
+#exit_code
+i:1
+#stderr
+b129:test/for/statement_initializer.lox(3:6) Error: Expected an expression, but got '{'.
+    for ({}; a < 2; a = a + 1) {}
+         ^
+
+#stdout
+b0:

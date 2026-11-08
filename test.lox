@@ -1,5 +1,10 @@
-fun a() {
-    return;
+fun f() {
+    fun g() {
+        print("Hello!");
+    }
+
+    return g;
 }
 
-a();
+var h = f();
+h();

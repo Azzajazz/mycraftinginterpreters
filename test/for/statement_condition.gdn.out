@@ -1,0 +1,9 @@
+#stdout
+b0:
+#stderr
+b143:test/for/statement_condition.lox(3:17) Error: Expected an expression, but got '{'.
+    for (var a = 1; {}; a = a + 1) {}
+                    ^
+
+#exit_code
+i:1

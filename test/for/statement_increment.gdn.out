@@ -1,0 +1,9 @@
+#stderr
+b146:test/for/statement_increment.lox(2:24) Error: Expected an expression, but got '{'.
+    for (var a = 1; a < 2; {}) {}
+                           ^
+
+#stdout
+b0:
+#exit_code
+i:1

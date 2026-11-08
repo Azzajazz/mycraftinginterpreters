@@ -1,12 +1,19 @@
 This is just a list to write down stuff to do as I come across it.
 
+! Error message strategies. When are they recoverable? How do we recover from them? Etc.
+    When parsing:
+        - Errors that stop the parsing process completely.
+        - Errors that the parser can recover from by looking for some future character.
+            - This one is interesting. We might end up with syntax error spam. I find that annoying when writing Odin stuff, and even worse when writing C.
+            - Other option is that we bail on syntax errors? This would require a fast parsing stage, which I think might be a given.
+                - This has the added benefit of keeping the AST clean in future, although that could just be deferred to the analyzer.
 
-! Implement gtest record so that we don't have to mess with the gdn files all the time.
-
+    Or maybe we do the poisoning thing? Like, mark ast nodes as invalid and use them as placeholders? I don't see why this would be any different to the parsing recovery strategy.
+    The only benefit here would be that you'd find type errors during compilation, so you'd basically get all the errors.
 
 ----------------------------------------------------------------------
 
-! Error message strategies. When are they recoverable? How do we recover from them? Etc.
+- test/for/return_closure.lox: I don't think I link environments correctly when returning them from functions, or something like that.
 
 !!! MASSIVE !!!
 ! Convert to bytecode interpreter.

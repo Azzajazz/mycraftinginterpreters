@@ -48,6 +48,7 @@ Environment :: struct {
     flags: bit_set[Environment_Flag],
 }
 
+/*
 delete_environment :: proc(env: ^Environment) {
     for child in env.children {
         if child == nil do continue
@@ -72,6 +73,7 @@ delete_environment :: proc(env: ^Environment) {
 
     free(env)
 }
+*/
 
 Interp :: struct {
     // @Temporary: We need the code for each file to live somewhere so that error messages make sense.
@@ -86,7 +88,13 @@ Interp :: struct {
 }
 
 make_environment :: proc(parent: ^Environment) -> ^Environment {
-    env := new(Environment)
+    // @Hack @Leak: Freeing environments is tricky in a non-managed language. Once we have a bytecode interpreter,
+    // I hope that this problem will be easier because the concept of environments will probably disappear.
+    // So, just use the temporary allocator for now and never free these.
+    env := new(Environment, context.temp_allocator)
+    env.children.allocator = context.temp_allocator
+    env.variables.allocator = context.temp_allocator
+    env.functions.allocator = context.temp_allocator
 
     env.parent = parent
     if parent != nil {
@@ -173,12 +181,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
 
         env := make_environment(interp.current_environment)
         interp.current_environment = env
-        defer {
-            interp.current_environment = env.parent
-            if .NoFree not_in env.flags {
-                delete_environment(env)
-            }
-        }
+        defer interp.current_environment = env.parent
 
         for child in scope.children {
             return_value, did_return = evaluate(interp, child)
@@ -227,12 +230,11 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
             // @Cleanup: I feel like we should always clean this up and skip the NoFree check?
             env := interp.current_environment
             interp.current_environment = env.parent
-            if .NoFree not_in env.flags {
-                delete_environment(env)
-            }
         }
 
-        evaluate(interp, ast_for.initializer)
+        if ast_for.initializer != nil {
+            evaluate(interp, ast_for.initializer)
+        }
 
         for {
             if ast_for.condition != nil {
@@ -531,12 +533,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 }
 
                 interp.current_environment = env
-                defer {
-                    interp.current_environment = old_env
-                    if .NoFree not_in env.flags {
-                        delete_environment(env)
-                    }
-                }
+                defer interp.current_environment = old_env
                 
                 for child in id.ast.body.children {
                     value, returned := evaluate(interp, child)
