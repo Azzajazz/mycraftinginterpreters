@@ -1,0 +1,2 @@
+var name = "Hello";
+class name {} // Expect error: redeclaration of name.

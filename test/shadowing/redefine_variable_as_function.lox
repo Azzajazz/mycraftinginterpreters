@@ -1,0 +1,2 @@
+var name = "Hello";
+fun name() {} // Expect error: redeclaration of name.

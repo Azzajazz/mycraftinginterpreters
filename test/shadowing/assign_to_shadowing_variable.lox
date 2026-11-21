@@ -1,0 +1,10 @@
+class className {}
+fun funName() {}
+
+{
+    var className = "Hello";
+    className = "World";
+
+    var funName = "Hello";
+    funName = "World";
+}

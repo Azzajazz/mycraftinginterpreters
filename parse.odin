@@ -26,6 +26,7 @@ import "core:strconv"
 Ast_Type :: enum {
     // Declarations that are not statements:
     Function,
+    Class,
 
     // Statements that are not expressions:
     VarDefinition,
@@ -82,6 +83,13 @@ Ast_Function :: struct {
     name: string,
     // @Memory @Cleanup :DynamicArrayInArena
     params: [dynamic]string,
+    body: ^Ast_Scope,
+}
+
+Ast_Class :: struct {
+    using decl: Ast_Declaration,
+
+    name: string,
     body: ^Ast_Scope,
 }
 
@@ -215,6 +223,7 @@ Ast_Call :: struct {
 
 ast_types := map[typeid]Ast_Type {
     Ast_Function = .Function,
+    Ast_Class = .Class,
 
     Ast_Var_Definition = .VarDefinition,
     Ast_Scope = .Scope,
@@ -315,6 +324,17 @@ dump_ast :: proc(ast: ^Ast, indent := 0) {
         fmt.print("  body = ")
 
         dump_ast(function.body, indent + 1)
+
+    case .Class:
+        class := cast(^Ast_Class)ast
+
+        dump_indent(indent)
+        fmt.printfln("  name = %v", class.name)
+
+        dump_indent(indent)
+        fmt.print("  body = ")
+
+        dump_ast(class.body, indent + 1)
 
     case .VarDefinition:
         var_def := cast(^Ast_Var_Definition)ast
@@ -608,9 +628,29 @@ parse_scope_entry :: proc(parser: ^Parser) -> ^Ast {
         body := parse_scope(parser)
 
         function.name = name.value
-        function.body = cast(^Ast_Scope)body
+        function.body = body
 
         return function
+
+    case .Class:
+        consume_token(parser) // Consume the 'class' keyword.
+        name := expect_token(parser, .Identifier, "Class name must be a valid identifier.")
+
+        class := new_ast_node(Ast_Class, token.code_index, name.code_index, parser)
+
+        // :ExpectToken
+        // @Cleanup
+        token = next_token(parser)
+        if token.type != .LeftBrace {
+            // @Crash @Cleanup: report_error exits the program. We should recover and continue parsing instead.
+            report_error(parser.file, get_token_span(parser.file, token), "A function body must be a scope. Expected '{{', but got '%v'.", get_token_code(parser.file, token))
+        }
+        body := parse_scope(parser)
+
+        class.name = name.value
+        class.body = body
+
+        return class
 
     case:
         return parse_statement(parser)

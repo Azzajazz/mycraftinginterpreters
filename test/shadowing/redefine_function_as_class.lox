@@ -1,0 +1,2 @@
+fun name() {}
+class name {} // Expect error: redeclaration of name.

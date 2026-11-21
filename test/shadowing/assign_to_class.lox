@@ -1,0 +1,2 @@
+class name {}
+name = "Hello"; // Expect error: cannot assign to a class definition.

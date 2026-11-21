@@ -1,10 +1,65 @@
-fun f() {
-    fun g() {
-        print("Hello!");
-    }
+// Not allowed! Identifier collision!
+var name = "Hello";
 
-    return g;
+fun name() {}
+
+
+
+
+// Not allowed! Assigning to the same name as a function declaration in the same scope!
+fun name() {}
+
+var name = "Foo";
+
+
+
+// Allowed! `name` is shadowed in the inner scope!
+var name = "Hello";
+
+{
+    fun name() {}
 }
 
-var h = f();
-h();
+
+// Allowed! `name` is shadowed in the inner scope!
+fun name() {}
+
+{
+    var name = "Hello";
+}
+
+
+
+
+// Not allowed! `name` refers to the function definition in the inner scope and cannot be assigned to.
+var name = "Hello";
+
+{
+    fun name() {}
+    name = "Bar";
+}
+
+
+
+
+// Allowed! `name` refers to the variable in the inner scope and can be assigned to.
+fun name() {}
+
+{
+    var name = "Hello";
+    name = "World";
+}
+
+
+
+
+// Not allowed! `name` refers to the function definition inside the function's scope and cannot be assigned to.
+// This makes recursive calls work!!!
+var name = "Hello";
+
+{
+    fun name() {
+        name = "Foo";
+    }
+}
+

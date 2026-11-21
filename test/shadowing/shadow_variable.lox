@@ -1,0 +1,9 @@
+var name = "Hello";
+
+{
+    fun name() {}
+}
+
+{
+    class name {}
+}

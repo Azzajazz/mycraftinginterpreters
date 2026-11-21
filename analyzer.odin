@@ -6,6 +6,7 @@ Scope_Info :: struct {
     // @Performance: Maybe a set here?
     defined_variables: [dynamic]string,
     defined_functions: [dynamic]string,
+    defined_classes: [dynamic]string,
 
     is_function_scope: bool,
 }
@@ -13,6 +14,7 @@ Scope_Info :: struct {
 delete_scope_info :: proc(info: Scope_Info) {
     delete(info.defined_variables)
     delete(info.defined_functions)
+    delete(info.defined_classes)
 }
 
 Analyzer :: struct {
@@ -55,6 +57,11 @@ add_variable_definition :: proc(analyzer: ^Analyzer, name: string) {
     append(&info.defined_variables, name)
 }
 
+add_class_definition :: proc(analyzer: ^Analyzer, name: string) {
+    info := get_current_scope_info(analyzer)
+    append(&info.defined_classes, name)
+}
+
 analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     switch ast.type {
     case .Scope:
@@ -81,6 +88,19 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
         }
 
         for child in ast_function.body.children {
+            analyze(analyzer, child)
+        }
+
+    case .Class:
+        // @Incomplete: I don't think classes can be closures... Maybe we need to enforce that here.
+        ast_class := cast(^Ast_Class)ast
+
+        add_class_definition(analyzer, ast_class.name)
+
+        add_scope_info(analyzer, false)
+        defer remove_scope_info(analyzer)
+
+        for child in ast_class.body.children {
             analyze(analyzer, child)
         }
 
@@ -225,11 +245,23 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
 
         // If we are assigning to a variable that isn't defined, then that's an error.
         var_is_defined := false
-        #reverse for info in analyzer.scope_infos {
+        lookup: #reverse for info in analyzer.scope_infos {
+            for def in info.defined_functions {
+                if def == left.name {
+                    report_error(analyzer.file, ast.span, "Attempt to assign to a function definition '%v'.", left.name)
+                }
+            }
+
+            for def in info.defined_classes {
+                if def == left.name {
+                    report_error(analyzer.file, ast.span, "Attempt to assign to a class definition '%v'.", left.name)
+                }
+            }
+
             for def in info.defined_variables {
                 if def == left.name {
                     var_is_defined = true
-                    break
+                    break lookup
                 }
             }
         }
@@ -250,6 +282,12 @@ resolve :: proc(analyzer: ^Analyzer, name: string) -> (hops: int, found: bool) {
         }
 
         for def in info.defined_functions {
+            if def == name {
+                return hops, true
+            }
+        }
+
+        for def in info.defined_classes {
             if def == name {
                 return hops, true
             }

@@ -1,0 +1,6 @@
+var name = "Hello";
+
+{
+    fun name() {}
+    name = "World"; // Expect error: cannot assign to function definition.
+}

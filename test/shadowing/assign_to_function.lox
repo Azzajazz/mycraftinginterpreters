@@ -1,0 +1,2 @@
+fun name() {}
+name = "Hello"; // Expect error: cannot assign to a function declaration.

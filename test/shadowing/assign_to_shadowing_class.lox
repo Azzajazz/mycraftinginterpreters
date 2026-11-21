@@ -1,0 +1,6 @@
+var name = "Hello";
+
+{
+    class name {}
+    name = "World"; // Expect error: cannot assign to a class definition.
+}

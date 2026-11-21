@@ -1,0 +1,9 @@
+#stdout
+b0:
+#stderr
+b198:test/shadowing/assign_to_function.lox(2:1) Error: Attempt to assign to a function definition 'name'.
+    name = "Hello"; // Expect error: cannot assign to a function declaration.
+    ^^^^^^^^^^^^^^
+
+#exit_code
+i:1

@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b34:test/shadowing/assign_to_class.lox
+lend

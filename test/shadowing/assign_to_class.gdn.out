@@ -1,0 +1,9 @@
+#stderr
+b188:test/shadowing/assign_to_class.lox(2:1) Error: Attempt to assign to a class definition 'name'.
+    name = "Hello"; // Expect error: cannot assign to a class definition.
+    ^^^^^^^^^^^^^^
+
+#stdout
+b0:
+#exit_code
+i:1
