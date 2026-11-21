@@ -1,3 +1,5 @@
+#exit_code
+i:0
 #stdout
 b8:-3
 3
@@ -5,5 +7,3 @@ b8:-3
 
 #stderr
 b0:
-#exit_code
-i:0

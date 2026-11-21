@@ -1,0 +1,9 @@
+#exit_code
+i:1
+#stdout
+b0:
+#stderr
+b243:test/shadowing/redefine_function_as_variable.lox(2:1) Error: Cannot define a variable 'name' in the same scope as a function definition with the same name.
+    var name = "Hello"; // Expect error: redeclaration of name.
+    ^^^^^^^^^^^^^^^^^^
+

@@ -77,6 +77,25 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
     case .Function:
         ast_function := cast(^Ast_Function)ast
 
+        info := get_current_scope_info(analyzer)
+        for def in info.defined_functions {
+            if def == ast_function.name {
+                    report_error(analyzer.file, ast.span, "Cannot redefine a function '%v' in the same scope as a previous definition with the same name.", ast_function.name)
+            }
+        }
+
+        for def in info.defined_classes {
+            if def == ast_function.name {
+                    report_error(analyzer.file, ast.span, "Cannot define a function '%v' in the same scope as a class definition with the same name.", ast_function.name)
+            }
+        }
+
+        for def in info.defined_variables {
+            if def == ast_function.name {
+                report_error(analyzer.file, ast.span, "Cannot define a function '%v' in the same scope as a variable definition with the same name.", ast_function.name)
+            }
+        }
+
         add_function_definition(analyzer, ast_function.name)
 
         add_scope_info(analyzer, true)
@@ -95,6 +114,25 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
         // @Incomplete: I don't think classes can be closures... Maybe we need to enforce that here.
         ast_class := cast(^Ast_Class)ast
 
+        info := get_current_scope_info(analyzer)
+        for def in info.defined_functions {
+            if def == ast_class.name {
+                    report_error(analyzer.file, ast.span, "Cannot define a class '%v' in the same scope as a function definition with the same name.", ast_class.name)
+            }
+        }
+
+        for def in info.defined_classes {
+            if def == ast_class.name {
+                    report_error(analyzer.file, ast.span, "Cannot redefine a class '%v' in the same scope as a previous definition with the same name.", ast_class.name)
+            }
+        }
+
+        for def in info.defined_variables {
+            if def == ast_class.name {
+                report_error(analyzer.file, ast.span, "Cannot define a class '%v' in the same scope as a variable definition with the same name.", ast_class.name)
+            }
+        }
+
         add_class_definition(analyzer, ast_class.name)
 
         add_scope_info(analyzer, false)
@@ -111,13 +149,24 @@ analyze :: proc(analyzer: ^Analyzer, ast: ^Ast) {
         analyze(analyzer, ast_vardef.value)
         analyzer.currently_defining = ""
 
+        info := get_current_scope_info(analyzer)
+        for def in info.defined_functions {
+            if def == ast_vardef.name {
+                    report_error(analyzer.file, ast.span, "Cannot define a variable '%v' in the same scope as a function definition with the same name.", ast_vardef.name)
+            }
+        }
+
+        for def in info.defined_classes {
+            if def == ast_vardef.name {
+                    report_error(analyzer.file, ast.span, "Cannot define a variable '%v' in the same scope as a class definition with the same name.", ast_vardef.name)
+            }
+        }
+
         if len(analyzer.scope_infos) > 1 {
             // We are not in global scope, so redefinition is an error.
-            info := get_current_scope_info(analyzer)
-
             for def in info.defined_variables {
                 if def == ast_vardef.name {
-                    report_error(analyzer.file, ast.span, "Cannot redefine a variable in a scope that is not the global scope.")
+                    report_error(analyzer.file, ast.span, "Cannot redefine a variable '%v' in a scope that is not the global scope.", ast_vardef.name)
                 }
             }
         }

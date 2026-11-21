@@ -1,9 +1,9 @@
-#stdout
-b0:
 #exit_code
 i:1
+#stdout
+b0:
 #stderr
-b225:test/variable/duplicate_local.lox(3:3) Error: Cannot redefine a variable in a scope that is not the global scope.
+b229:test/variable/duplicate_local.lox(3:3) Error: Cannot redefine a variable 'a' in a scope that is not the global scope.
       var a = "other"; // Error at 'a': Already a variable with this name in this scope.
       ^^^^^^^^^^^^^^^
 

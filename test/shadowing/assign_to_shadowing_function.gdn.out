@@ -1,9 +1,9 @@
+#exit_code
+i:1
+#stdout
+b0:
 #stderr
 b213:test/shadowing/assign_to_shadowing_function.lox(5:5) Error: Attempt to assign to a function definition 'name'.
         name = "World"; // Expect error: cannot assign to function definition.
         ^^^^^^^^^^^^^^
 
-#stdout
-b0:
-#exit_code
-i:1

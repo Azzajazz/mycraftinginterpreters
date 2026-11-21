@@ -1,7 +1,7 @@
-#stdout
-b0:
 #exit_code
 i:1
+#stdout
+b0:
 #stderr
 b229:test/function/extra_arguments.lox(6:1) Error: Function was called with the incorrect number of arguments. Expected 2 arguments, got 4.
     f(1, 2, 3, 4); // expect runtime error: Expected 2 arguments but got 4.

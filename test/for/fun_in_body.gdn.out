@@ -1,3 +1,5 @@
+#exit_code
+i:1
 #stdout
 b0:
 #stderr
@@ -5,5 +7,3 @@ b120:test/for/fun_in_body.lox(2:10) Error: Expected an expression, but got 'fun'
     for (;;) fun foo() {}
              ^^^
 
-#exit_code
-i:1

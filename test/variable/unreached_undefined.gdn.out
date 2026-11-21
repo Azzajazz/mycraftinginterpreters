@@ -1,9 +1,9 @@
 #exit_code
 i:1
+#stdout
+b0:
 #stderr
 b161:test/variable/unreached_undefined.lox(2:9) Error: Variable 'notDefined' was used, but it hasn't been defined yet.
       print notDefined;
             ^^^^^^^^^^
 
-#stdout
-b0:

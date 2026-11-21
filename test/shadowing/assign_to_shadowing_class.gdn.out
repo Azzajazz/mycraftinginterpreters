@@ -1,0 +1,9 @@
+#exit_code
+i:1
+#stdout
+b0:
+#stderr
+b206:test/shadowing/assign_to_shadowing_class.lox(5:5) Error: Attempt to assign to a class definition 'name'.
+        name = "World"; // Expect error: cannot assign to a class definition.
+        ^^^^^^^^^^^^^^
+
