@@ -1,0 +1,5 @@
+#command
+l:
+b24:./mycraftinginterpreters
+b48:test/shadowing/redefine_variable_as_function.lox
+lend

@@ -42,8 +42,7 @@ Environment :: struct {
     parent: ^Environment,
     children: [dynamic]^Environment,
 
-    variables: map[string]Value,
-    functions: map[string]Value,
+    objects: map[string]Value,
 
     flags: bit_set[Environment_Flag],
 }
@@ -93,8 +92,7 @@ make_environment :: proc(parent: ^Environment) -> ^Environment {
     // So, just use the temporary allocator for now and never free these.
     env := new(Environment, context.temp_allocator)
     env.children.allocator = context.temp_allocator
-    env.variables.allocator = context.temp_allocator
-    env.functions.allocator = context.temp_allocator
+    env.objects.allocator = context.temp_allocator
 
     env.parent = parent
     if parent != nil {
@@ -171,7 +169,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
     case .Function:
         function := cast(^Ast_Function)ast
 
-        interp.current_environment.functions[function.name] = Function {
+        interp.current_environment.objects[function.name] = Function {
             ast = function,
             enclosing_environment = interp.current_environment,
         }
@@ -272,7 +270,7 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
     case .VarDefinition:
         ast_var_def := cast(^Ast_Var_Definition)ast
         value := evaluate_expression(interp, ast_var_def.value, ast_var_def.name)
-        interp.current_environment.variables[ast_var_def.name] = value
+        interp.current_environment.objects[ast_var_def.name] = value
 
     case .Return:
         ast_return := cast(^Ast_Return)ast
@@ -529,7 +527,7 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
                 // Bind the values of the arguments to the parameters in the body scope.
                 for i in 0..<len(ast_call.args) {
                     value := evaluate_expression(interp, ast_call.args[i])
-                    env.variables[id.ast.params[i]] = value
+                    env.objects[id.ast.params[i]] = value
                 }
 
                 interp.current_environment = env
@@ -575,7 +573,7 @@ set_value :: proc(interp: ^Interp, name: string, value: Value, hops: int) {
         env = env.parent
     }
 
-    env.variables[name] = value
+    env.objects[name] = value
 }
 
 // @Unsafe! Don't hold onto the pointer to the Value any longer than you need to, since it may
@@ -590,10 +588,7 @@ lookup_identifier :: proc(interp: ^Interp, name: string, hops: int) -> (value: ^
         env = env.parent
     }
 
-    value, value_found = &env.variables[name]
-    if value_found do return value, value_found
-
-    value, value_found = &env.functions[name]
+    value, value_found = &env.objects[name]
     if value_found do return value, value_found
 
     return nil, false

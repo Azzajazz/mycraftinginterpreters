@@ -1,0 +1,9 @@
+#stderr
+b219:test/shadowing/redefine_variable_as_class.lox(2:1) Error: Cannot define a class 'name' in the same scope as a variable definition with the same name.
+    class name {} // Expect error: redeclaration of name.
+    ^^^^^^
+
+#exit_code
+i:1
+#stdout
+b0:

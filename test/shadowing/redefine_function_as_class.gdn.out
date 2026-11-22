@@ -1,0 +1,9 @@
+#exit_code
+i:1
+#stderr
+b219:test/shadowing/redefine_function_as_class.lox(2:1) Error: Cannot define a class 'name' in the same scope as a function definition with the same name.
+    class name {} // Expect error: redeclaration of name.
+    ^^^^^^
+
+#stdout
+b0:

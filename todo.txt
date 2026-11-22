@@ -1,5 +1,7 @@
 This is just a list to write down stuff to do as I come across it.
 
+- Classes
+
 ----------------------------------------------------------------------
 
 !!! MASSIVE !!!
@@ -7,8 +9,6 @@ This is just a list to write down stuff to do as I come across it.
 
 - // :ExpectToken
   // @Cleanup: We can probably just use expect_token here. Lel.
-
-- Classes
 
 - Better error messages for invalid variable names (e.g. for test/variable/use_false_as_var.lox)
 
@@ -42,6 +42,8 @@ This is just a list to write down stuff to do as I come across it.
 
     Or maybe we do the poisoning thing? Like, mark ast nodes as invalid and use them as placeholders? I don't see why this would be any different to the parsing recovery strategy.
     The only benefit here would be that you'd find type errors during compilation, so you'd basically get all the errors.
+
+- Some lexical spans don't make sense, e.g. the span of a function definition or class definition should cover the name as well.
 
 
 ----------------------------------------------------------------------

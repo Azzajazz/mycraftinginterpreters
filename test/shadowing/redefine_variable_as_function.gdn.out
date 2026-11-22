@@ -1,0 +1,9 @@
+#stdout
+b0:
+#stderr
+b223:test/shadowing/redefine_variable_as_function.lox(2:1) Error: Cannot define a function 'name' in the same scope as a variable definition with the same name.
+    fun name() {} // Expect error: redeclaration of name.
+    ^^^^
+
+#exit_code
+i:1
