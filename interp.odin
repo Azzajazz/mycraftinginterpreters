@@ -19,6 +19,7 @@ Value :: union {
     bool,
     Function,
     Native_Function,
+    ^Ast_Class,
 }
 
 get_value_type_name :: proc(value: Value) -> string {
@@ -29,6 +30,8 @@ get_value_type_name :: proc(value: Value) -> string {
     case bool:   return "bool"
     case Function, Native_Function: 
         return "function"
+    case ^Ast_Class:
+        return "class"
     }
 
     unreachable()
@@ -174,6 +177,11 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
             enclosing_environment = interp.current_environment,
         }
 
+    case .Class:
+        class := cast(^Ast_Class)ast
+
+        interp.current_environment.objects[class.name] = class
+
     case .Scope:
         scope := cast(^Ast_Scope)ast
 
@@ -265,6 +273,8 @@ evaluate :: proc(interp: ^Interp, ast: ^Ast) -> (return_value: Value, did_return
                 fmt.printfln("<fn %v>", v.ast.name)
             case Native_Function:
                 fmt.printfln("<native fn %v>", v)
+            case ^Ast_Class:
+                fmt.printfln("<class %v>", v.name)
         }
 
     case .VarDefinition:
@@ -416,6 +426,10 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
             case Function, Native_Function:
                 // @Audit: When does it make sense to compare functions not equal?
                 return true
+
+            case ^Ast_Class:
+                // @Audit: When does it make sense to compare classes not equal?
+                return true
             }
 
         case .Equal:
@@ -441,6 +455,10 @@ evaluate_expression :: proc(interp: ^Interp, expr: ^Ast_Expression, initialized_
 
             case Function, Native_Function:
                 // @Audit: When does it make sense to compare functions equal?
+                return false
+
+            case ^Ast_Class:
+                // @Audit: When does it make sense to compare classes equal?
                 return false
             }
 
